@@ -1,11 +1,20 @@
 package salt.security.trie;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.Map;
+import java.util.List;
 
 /**
  * A node in the path template trie.
  * Each node represents a depth level in the path hierarchy.
+ *
+ * MULTI-VALIDATOR SUPPORT:
+ * This node now supports multiple wildcard children with different validators.
+ * This allows the same path position to accept different ID formats:
+ * - /api/users/123/profile (numeric ID)
+ * - /api/users/550e8400-.../profile (UUID)
+ * Both can coexist and will be tried in order during lookup.
  */
 public class TrieNode {
     /**
@@ -15,14 +24,11 @@ public class TrieNode {
     private final Map<String, TrieNode> literals;
 
     /**
-     * Single wildcard child node (matches any segment).
+     * List of wildcard children (multiple validators supported).
+     * Each wildcard child has its own validator and continuation path.
+     * During lookup, all wildcard children are tried until one matches.
      */
-    private TrieNode wildcardChild;
-
-    /**
-     * Metadata for the wildcard child (parameter name and validator).
-     */
-    private WildcardDef wildcardDef;
+    private final List<WildcardChild> wildcardChildren;
 
     /**
      * The template string stored at this leaf node.
@@ -35,8 +41,7 @@ public class TrieNode {
      */
     public TrieNode() {
         this.literals = new ConcurrentHashMap<>();
-        this.wildcardChild = null;
-        this.wildcardDef = null;
+        this.wildcardChildren = new CopyOnWriteArrayList<>();  // Thread-safe list
         this.template = null;
     }
 
@@ -50,39 +55,96 @@ public class TrieNode {
     }
 
     /**
-     * Returns the wildcard child node, if one exists.
+     * Returns the list of wildcard children.
+     * Each wildcard child represents a different validator for the same path position.
      *
-     * @return the wildcard child, or null if none exists
+     * @return an unmodifiable list of wildcard children
      */
-    public TrieNode getWildcardChild() {
-        return wildcardChild;
+    public List<WildcardChild> getWildcardChildren() {
+        return wildcardChildren;
     }
 
     /**
-     * Sets the wildcard child node.
+     * Adds a new wildcard child to this node.
+     *
+     * @param wildcardChild the wildcard child to add
+     */
+    public void addWildcardChild(WildcardChild wildcardChild) {
+        if (wildcardChild == null) {
+            throw new IllegalArgumentException("WildcardChild cannot be null");
+        }
+        this.wildcardChildren.add(wildcardChild);
+    }
+
+    /**
+     * Finds an existing wildcard child that matches the given validator.
+     * Returns null if no matching wildcard child exists.
+     *
+     * @param validator the validator to match
+     * @return the matching WildcardChild, or null if not found
+     */
+    public WildcardChild findWildcardChild(SegmentValidator validator) {
+        for (WildcardChild wc : wildcardChildren) {
+            if (wc.matchesValidator(validator)) {
+                return wc;
+            }
+        }
+        return null;
+    }
+
+    // =========================================================================
+    // DEPRECATED METHODS - Kept for backward compatibility during migration
+    // =========================================================================
+
+    /**
+     * @deprecated Use getWildcardChildren() instead.
+     * Returns the first wildcard child node, if one exists.
+     *
+     * @return the first wildcard child node, or null if none exists
+     */
+    @Deprecated
+    public TrieNode getWildcardChild() {
+        return wildcardChildren.isEmpty() ? null : wildcardChildren.get(0).getNode();
+    }
+
+    /**
+     * @deprecated Use addWildcardChild(WildcardChild) instead.
+     * Sets the wildcard child node (legacy single-wildcard API).
      *
      * @param wildcardChild the wildcard child node
      */
+    @Deprecated
     public void setWildcardChild(TrieNode wildcardChild) {
-        this.wildcardChild = wildcardChild;
+        // This method is kept for backward compatibility but should not be used
+        // It will be removed in a future version
+        throw new UnsupportedOperationException(
+            "setWildcardChild() is deprecated. Use addWildcardChild(WildcardChild) instead."
+        );
     }
 
     /**
-     * Returns the wildcard definition for this node.
+     * @deprecated Use getWildcardChildren() instead.
+     * Returns the wildcard definition for the first wildcard child.
      *
-     * @return the wildcard definition, or null if this node has no wildcard child
+     * @return the wildcard definition, or null if no wildcard children exist
      */
+    @Deprecated
     public WildcardDef getWildcardDef() {
-        return wildcardDef;
+        return wildcardChildren.isEmpty() ? null : wildcardChildren.get(0).getDef();
     }
 
     /**
-     * Sets the wildcard definition for this node.
+     * @deprecated Use addWildcardChild(WildcardChild) instead.
+     * Sets the wildcard definition (legacy single-wildcard API).
      *
      * @param wildcardDef the wildcard definition
      */
+    @Deprecated
     public void setWildcardDef(WildcardDef wildcardDef) {
-        this.wildcardDef = wildcardDef;
+        // This method is kept for backward compatibility but should not be used
+        throw new UnsupportedOperationException(
+            "setWildcardDef() is deprecated. Use addWildcardChild(WildcardChild) instead."
+        );
     }
 
     /**

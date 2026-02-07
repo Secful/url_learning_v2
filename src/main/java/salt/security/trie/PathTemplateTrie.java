@@ -56,12 +56,20 @@ public class PathTemplateTrie {
                     String paramName = extractParamName(segment);
                     SegmentValidator validator = validators.getOrDefault(paramName, SegmentValidator.ANY);
 
-                    // Create or reuse wildcard child
-                    if (node.getWildcardChild() == null) {
-                        node.setWildcardChild(new TrieNode());
-                        node.setWildcardDef(new WildcardDef(paramName, validator));
+                    // Check if a wildcard child with this validator already exists
+                    WildcardChild existingWildcard = node.findWildcardChild(validator);
+
+                    if (existingWildcard != null) {
+                        // Reuse existing wildcard path with the same validator
+                        node = existingWildcard.getNode();
+                    } else {
+                        // Create new wildcard child with this validator
+                        TrieNode newWildcardNode = new TrieNode();
+                        WildcardDef wildcardDef = new WildcardDef(paramName, validator);
+                        WildcardChild newWildcard = new WildcardChild(newWildcardNode, wildcardDef);
+                        node.addWildcardChild(newWildcard);
+                        node = newWildcardNode;
                     }
-                    node = node.getWildcardChild();
                 } else {
                     // Literal segment - store lowercase for case-insensitive matching
                     String key = segment.toLowerCase();
@@ -132,17 +140,17 @@ public class PathTemplateTrie {
             }
         }
 
-        // Priority 2: Try wildcard match
-        if (node.getWildcardChild() != null) {
-            WildcardDef wildcardDef = node.getWildcardDef();
+        // Priority 2: Try all wildcard matches
+        for (WildcardChild wildcardChild : node.getWildcardChildren()) {
+            WildcardDef wildcardDef = wildcardChild.getDef();
             if (wildcardDef.getValidator().test(segment)) {
                 // Capture parameter
                 String paramName = wildcardDef.getParamName();
                 params.put(paramName, segment);
 
-                MatchResult result = doLookup(node.getWildcardChild(), segments, depth + 1, params);
+                MatchResult result = doLookup(wildcardChild.getNode(), segments, depth + 1, params);
                 if (result != null) {
-                    return result;
+                    return result;  // Found a matching path!
                 }
 
                 // Backtrack: remove parameter if this path didn't work
@@ -176,10 +184,13 @@ public class PathTemplateTrie {
             // Navigate to the leaf node
             for (String segment : segments) {
                 if (isWildcard(segment)) {
-                    if (node.getWildcardChild() == null) {
+                    // NOTE: With multiple wildcards, this uses the first one.
+                    // A proper implementation would require validators to disambiguate.
+                    List<WildcardChild> wildcards = node.getWildcardChildren();
+                    if (wildcards.isEmpty()) {
                         return false; // Template not found
                     }
-                    node = node.getWildcardChild();
+                    node = wildcards.get(0).getNode();
                 } else {
                     String key = segment.toLowerCase();
                     node = node.getLiterals().get(key);
@@ -233,9 +244,9 @@ public class PathTemplateTrie {
             collectTemplates(child, templates);
         }
 
-        // Collect from wildcard child
-        if (node.getWildcardChild() != null) {
-            collectTemplates(node.getWildcardChild(), templates);
+        // Collect from all wildcard children
+        for (WildcardChild wildcardChild : node.getWildcardChildren()) {
+            collectTemplates(wildcardChild.getNode(), templates);
         }
     }
 

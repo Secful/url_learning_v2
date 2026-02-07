@@ -30,18 +30,31 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         "You are an API pattern analyzer. Given a concrete HTTP path, infer the parameterized template.\n" +
         "Rules:\n" +
         "1. Replace dynamic segments with {paramName} placeholders\n" +
-        "2. Use semantic parameter names (e.g., {id}, {name}, {userId}, {companyId})\n" +
+        "2. Use semantic parameter names (e.g., {id}, {name}, {userId}, {companyId}, {lang}, {country}, {currency})\n" +
         "3. Identify segment types:\n" +
         "   - NUMERIC: digits only (e.g., 123, 456)\n" +
         "   - UUID: standard format (e.g., 550e8400-e29b-41d4-a716-446655440000)\n" +
         "   - MONGODB: 24 hex characters (e.g., 64e7a294e854ff2eb3550075)\n" +
+        "   - IATA_AIRPORT: 3-letter airport code (e.g., JFK, LAX, LHR, CDG)\n" +
+        "   - ICAO_AIRPORT: 4-letter airport code (e.g., KJFK, EGLL, LFPG)\n" +
+        "   - ISO_639_1: 2-letter language code (e.g., en, es, fr, de, zh)\n" +
+        "   - ISO_639_2: 3-letter language code (e.g., eng, spa, fra, deu)\n" +
+        "   - COUNTRY_ALPHA2: 2-letter country code (e.g., US, GB, FR, DE)\n" +
+        "   - COUNTRY_ALPHA3: 3-letter country code (e.g., USA, GBR, FRA)\n" +
+        "   - CURRENCY: 3-letter currency code (e.g., USD, EUR, GBP, JPY)\n" +
+        "   - HTTP_STATUS: 3-digit HTTP status code (e.g., 200, 404, 500)\n" +
         "   - ANY: any other non-empty string\n" +
         "4. Return ONLY valid JSON, no explanatory text\n" +
         "5. Keep literal segments as-is (e.g., /api, /users, /posts)\n" +
+        "6. Prefer specific validators over generic ones when pattern is clear\n" +
         "Format: {\"template\": \"/path/{param}\", \"validators\": {\"param\": \"type\"}}\n" +
         "Examples:\n" +
         "- /users/123 -> {\"template\": \"/users/{id}\", \"validators\": {\"id\": \"NUMERIC\"}}\n" +
-        "- /users/jack/posts/456 -> {\"template\": \"/users/{name}/posts/{id}\", \"validators\": {\"name\": \"ANY\", \"id\": \"NUMERIC\"}}\n" +
+        "- /content/en/articles -> {\"template\": \"/content/{lang}/articles\", \"validators\": {\"lang\": \"ISO_639_1\"}}\n" +
+        "- /flights/JFK/departures -> {\"template\": \"/flights/{airport}/departures\", \"validators\": {\"airport\": \"IATA_AIRPORT\"}}\n" +
+        "- /api/v2/countries/US/users -> {\"template\": \"/api/v2/countries/{country}/users\", \"validators\": {\"country\": \"COUNTRY_ALPHA2\"}}\n" +
+        "- /prices/USD/products -> {\"template\": \"/prices/{currency}/products\", \"validators\": {\"currency\": \"CURRENCY\"}}\n" +
+        "- /status/404/info -> {\"template\": \"/status/{code}/info\", \"validators\": {\"code\": \"HTTP_STATUS\"}}\n" +
         "- /api/orders/550e8400-e29b-41d4-a716-446655440000 -> {\"template\": \"/api/orders/{id}\", \"validators\": {\"id\": \"UUID\"}}\n" +
         "- /api/companies/64e7a294e854ff2eb3550075/config -> {\"template\": \"/api/companies/{companyId}/config\", \"validators\": {\"companyId\": \"MONGODB\"}}";
 
@@ -203,6 +216,7 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
 
     /**
      * Parses a validator type string into a SegmentValidator.
+     * Supports all built-in validators including pattern-based and set-based validators.
      */
     private SegmentValidator parseValidator(String type) {
         if (type == null) {
@@ -213,7 +227,10 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         SegmentValidator MONGODB_ID = segment ->
             segment != null && segment.matches("^[0-9a-fA-F]{24}$");
 
-        switch (type.toUpperCase()) {
+        String upperType = type.toUpperCase().replace("-", "_");
+
+        switch (upperType) {
+            // Pattern-based validators
             case "NUMERIC":
                 return SegmentValidator.NUMERIC;
             case "UUID":
@@ -222,6 +239,53 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
             case "MONGODB":
             case "OBJECT":
                 return MONGODB_ID;
+
+            // Airport codes
+            case "IATA_AIRPORT":
+            case "IATA":
+            case "AIRPORT_IATA":
+                return SegmentValidator.IATA_AIRPORT;
+            case "ICAO_AIRPORT":
+            case "ICAO":
+            case "AIRPORT_ICAO":
+                return SegmentValidator.ICAO_AIRPORT;
+
+            // Language codes
+            case "ISO_639_1":
+            case "ISO_639_1_LANGUAGE":
+            case "LANGUAGE":
+            case "LANG":
+                return SegmentValidator.ISO_639_1_LANGUAGE;
+            case "ISO_639_2":
+            case "ISO_639_2_LANGUAGE":
+            case "LANGUAGE_3":
+                return SegmentValidator.ISO_639_2_LANGUAGE;
+
+            // Country codes
+            case "COUNTRY_ALPHA2":
+            case "ISO_3166_ALPHA2":
+            case "COUNTRY":
+            case "ISO_3166":
+                return SegmentValidator.ISO_3166_COUNTRY_ALPHA2;
+            case "COUNTRY_ALPHA3":
+            case "ISO_3166_ALPHA3":
+            case "COUNTRY_3":
+                return SegmentValidator.ISO_3166_COUNTRY_ALPHA3;
+
+            // Currency codes
+            case "CURRENCY":
+            case "ISO_4217":
+            case "ISO_4217_CURRENCY":
+                return SegmentValidator.ISO_4217_CURRENCY;
+
+            // HTTP status codes
+            case "HTTP_STATUS":
+            case "HTTP_STATUS_CODE":
+            case "STATUS_CODE":
+            case "STATUS":
+                return SegmentValidator.HTTP_STATUS_CODE;
+
+            // Default
             case "ANY":
             default:
                 return SegmentValidator.ANY;
