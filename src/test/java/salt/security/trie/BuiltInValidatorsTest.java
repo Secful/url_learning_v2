@@ -204,7 +204,7 @@ class BuiltInValidatorsTest {
         assertMatch("/prices/usd/products", "usd");
 
         // Invalid
-        assertNull(trie.lookup("/prices/XXX/products")); // Not real
+        assertNull(trie.lookup("/prices/ZZZ/products")); // Not real
         assertNull(trie.lookup("/prices/US/products")); // Country, not currency
     }
 
@@ -278,7 +278,7 @@ class BuiltInValidatorsTest {
         assertNull(trie.lookup("/flights/XYZ/LAX/prices/USD"));
 
         // Invalid currency
-        assertNull(trie.lookup("/flights/JFK/LAX/prices/XXX"));
+        assertNull(trie.lookup("/flights/JFK/LAX/prices/ZZZ"));
     }
 
     @Test
