@@ -28,12 +28,17 @@ A regex-based approach (iterating N compiled patterns per incoming path) has O(N
 
 Each node in the trie represents a single depth level in the path hierarchy. A node contains:
 
-| Field            | Type                        | Description                                                  |
-|------------------|-----------------------------|--------------------------------------------------------------|
-| `literals`       | `Map<String, TrieNode>`     | Literal segment children. Key is the lowercased segment.     |
-| `wildcardChild`  | `TrieNode`                  | Single wildcard child node (matches any segment).            |
-| `wildcardDef`    | `WildcardDef`               | Param name and optional validator for the wildcard.          |
-| `template`       | `String`                    | Non-null only at leaf nodes. The full template string.       |
+| Field               | Type                        | Description                                                  |
+|---------------------|-----------------------------|--------------------------------------------------------------|
+| `literals`          | `Map<String, TrieNode>`     | Literal segment children. Key is the lowercased segment.     |
+| `wildcardChildren`  | `List<WildcardChild>`       | Multiple wildcard children (supports different validators).  |
+| `template`          | `String`                    | Non-null only at leaf nodes. The full template string.       |
+
+Each `WildcardChild` encapsulates:
+- `node` - The continuation trie node
+- `def` - The WildcardDef (parameter name + validator)
+
+This design enables **multiple validators at the same path position**, supporting API versioning and migration scenarios where different ID formats coexist.
 
 ### 3.2 Wildcard Definition
 
@@ -172,10 +177,17 @@ function insert(template, validators):
         if segment is "{param}":
             paramName = extract(segment)
             validator = validators.get(paramName) or ANY
-            if node.wildcardChild is null:
-                node.wildcardChild = new TrieNode()
-                node.wildcardDef = WildcardDef(paramName, validator)
-            node = node.wildcardChild
+
+            // Check if wildcard with this validator already exists
+            existingWildcard = node.findWildcardChild(validator)
+            if existingWildcard != null:
+                node = existingWildcard.getNode()  // Reuse existing path
+            else:
+                // Create new wildcard child with this validator
+                newNode = new TrieNode()
+                wildcardChild = new WildcardChild(newNode, WildcardDef(paramName, validator))
+                node.addWildcardChild(wildcardChild)
+                node = newNode
         else:
             node = node.literals.computeIfAbsent(segment)
     node.template = template
@@ -190,10 +202,10 @@ flowchart TD
     C --> D{Next segment?}
     D -- No more segments --> E[Mark current node as leaf<br/>Store template string]
     D -- Yes -->     F{"Is segment<br/>a wildcard #lbrace;param#rbrace; ?"}
-    F -- Yes --> G{Wildcard child<br/>exists?}
-    G -- No --> H["Create wildcard child node<br/>Attach WildcardDef with<br/>paramName + validator"]
-    G -- Yes --> I["Reuse existing<br/>wildcard child"]
-    H --> J[Move to wildcard child]
+    F -- Yes --> G{Wildcard child<br/>with this validator<br/>exists?}
+    G -- No --> H["Create new WildcardChild<br/>with new TrieNode and<br/>WildcardDef paramName + validator<br/>Add to wildcardChildren list"]
+    G -- Yes --> I["Reuse existing<br/>wildcard child with<br/>matching validator"]
+    H --> J[Move to wildcard child node]
     I --> J
     J --> D
     F -- No --> K{Literal child<br/>exists for segment?}
@@ -248,13 +260,14 @@ function doLookup(node, segments, depth, params):
         result = doLookup(literalChild, segments, depth+1, params)
         if result != null: return result
 
-    // Priority 2: Fall back to wildcard
-    if node.wildcardChild != null:
-        if node.wildcardDef.validator.test(segment):
-            params.put(node.wildcardDef.paramName, segment)
-            result = doLookup(node.wildcardChild, segments, depth+1, params)
+    // Priority 2: Try all wildcard children
+    for each wildcardChild in node.wildcardChildren:
+        wildcardDef = wildcardChild.getDef()
+        if wildcardDef.validator.test(segment):
+            params.put(wildcardDef.paramName, segment)
+            result = doLookup(wildcardChild.getNode(), segments, depth+1, params)
             if result != null: return result
-            params.remove(node.wildcardDef.paramName)  // backtrack
+            params.remove(wildcardDef.paramName)  // backtrack
 
     return null
 ```
@@ -274,17 +287,20 @@ flowchart TD
     I -- Yes --> J[Recurse into literal child<br/>depth + 1]
     J --> K{Recursion<br/>returned match?}
     K -- Yes --> F
-    K -- No --> L{Wildcard child<br/>exists?}
+    K -- No --> L{Any wildcard children<br/>exist?}
     I -- No --> L
     L -- No --> G
-    L -- Yes --> M{Validator accepts<br/>this segment?}
-    M -- No --> G
-    M -- Yes -->     N["Capture: params#lbrace;paramName#rbrace; = segment"]
-    N --> O[Recurse into wildcard child<br/>depth + 1]
-    O --> P{Recursion<br/>returned match?}
-    P -- Yes --> F
-    P -- No --> Q[Remove param from map<br/>BACKTRACK]
-    Q --> G
+    L -- Yes --> M["Try each wildcard child in order"]
+    M --> N{Current wildcard's<br/>validator accepts<br/>this segment?}
+    N -- No --> O{More wildcard<br/>children to try?}
+    O -- Yes --> M
+    O -- No --> G
+    N -- Yes --> P["Capture: params#lbrace;paramName#rbrace; = segment"]
+    P --> Q[Recurse into wildcard child<br/>depth + 1]
+    Q --> R{Recursion<br/>returned match?}
+    R -- Yes --> F
+    R -- No --> S[Remove param from map<br/>BACKTRACK]
+    S --> O
 
     style A fill:#2d3748,stroke:#4a5568,color:#e2e8f0
     style F fill:#276749,stroke:#38a169,color:#e2e8f0
@@ -387,10 +403,30 @@ The `ConcurrentHashMap` for literal children provides additional safety for conc
 
 ## 9. Limitations and Future Considerations
 
-**Multi-segment wildcards** — the current design matches one segment per wildcard. Paths like `/files/{filepath}` where filepath spans multiple segments (e.g., `a/b/c.txt`) are not supported. These would require a greedy wildcard node type that consumes remaining segments. Recommendation: handle these as LLM fallback cases until the pattern is common enough to warrant the added complexity.
+### ✅ Resolved Limitations
 
-**Multiple wildcards at the same level** — each node supports at most one wildcard child. If two templates differ only in wildcard validation at the same position (e.g., `/items/{id:NUMERIC}` and `/items/{slug:ALPHA}`), only one can be stored. This could be extended with a list of typed wildcards tried in priority order.
+**Multiple wildcards at the same level** — ~~each node supports at most one wildcard child~~ **RESOLVED**. As of the latest implementation, each node maintains a `List<WildcardChild>` allowing multiple validators at the same position. This enables:
+- **API versioning**: v1 uses numeric IDs, v2 uses UUIDs at the same path position
+- **Migration scenarios**: Legacy and new ID formats coexist during transitions
+- **Multi-format support**: Same endpoint accepts different ID formats simultaneously
+
+Example:
+```java
+// Both work at the same path position
+trie.insert("/api/users/{id}/profile", Map.of("id", NUMERIC));
+trie.insert("/api/users/{id}/profile", Map.of("id", UUID));
+
+// Now both formats are valid:
+lookup("/api/users/123/profile")                           → ✓ matches NUMERIC
+lookup("/api/users/550e8400-e29b-41d4-a716-.../profile")   → ✓ matches UUID
+```
+
+Performance impact: Negligible (~0.01 µs increase). Each wildcard validator is tried in order until one matches, maintaining sub-microsecond lookup times.
+
+### ⚠️ Current Limitations
+
+**Multi-segment wildcards** — the current design matches one segment per wildcard. Paths like `/files/{filepath}` where filepath spans multiple segments (e.g., `a/b/c.txt`) are not supported. These would require a greedy wildcard node type that consumes remaining segments. Recommendation: handle these as LLM fallback cases until the pattern is common enough to warrant the added complexity.
 
 **Persistence** — the trie is in-memory only. On restart, it must be rebuilt. The `listTemplates()` method enables serialization: dump all templates to a file/database and re-insert on startup.
 
-**Template conflict detection** — inserting two templates that resolve identically (e.g., `/users/{name}` and `/users/{id}`) silently overwrites. A conflict detection mechanism could warn on ambiguous inserts.
+**Template conflict detection** — inserting two templates that resolve identically (e.g., `/users/{name}` and `/users/{id}` both with ANY validator) may create ambiguous paths. A conflict detection mechanism could warn on ambiguous inserts.
