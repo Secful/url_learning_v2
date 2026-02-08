@@ -671,4 +671,61 @@ public interface SegmentValidator extends Predicate<String> {
         "500", "501", "502", "503", "504", "505", "506", "507", "508", "510", "511"
     );
 
+    /**
+     * Validates US state codes (2-letter codes).
+     * Examples: CA, NY, TX, FL, WA
+     *
+     * COMPLETE list of all 50 US states, DC, and US territories.
+     * Commonly used in regional APIs, shipping addresses, and geographic filters.
+     * Performance: ~15 nanoseconds per call
+     */
+    SegmentValidator US_STATE_CODE = setOf(
+        // 50 States (alphabetical)
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+        "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+        "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+        "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+        "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+        // District of Columbia
+        "DC",
+        // US Territories
+        "PR", "VI", "GU", "AS", "MP",
+        // Military addresses
+        "AA", "AE", "AP"
+    );
+
+    /**
+     * Validates day of week names (full and abbreviated).
+     * Examples: monday, mon, tuesday, tue
+     *
+     * Includes both full names (monday, tuesday, ...) and common abbreviations (mon, tue, ...).
+     * Useful for scheduling APIs, calendar systems, and recurring event patterns.
+     * Performance: ~15 nanoseconds per call
+     */
+    SegmentValidator DAY_OF_WEEK = setOf(
+        // Full names
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        // 3-letter abbreviations
+        "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+        // 2-letter abbreviations (less common but sometimes used)
+        "mo", "tu", "we", "th", "fr", "sa", "su"
+    );
+
+    /**
+     * Validates month names (full and abbreviated).
+     * Examples: january, jan, february, feb
+     *
+     * Includes both full month names (january, february, ...) and standard 3-letter abbreviations.
+     * Useful for date-based APIs, reporting systems, and time-series endpoints.
+     * Performance: ~15 nanoseconds per call
+     */
+    SegmentValidator MONTH_NAME = setOf(
+        // Full names
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december",
+        // 3-letter abbreviations
+        "jan", "feb", "mar", "apr", "may", "jun",
+        "jul", "aug", "sep", "oct", "nov", "dec"
+    );
+
 }

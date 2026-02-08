@@ -170,8 +170,11 @@ Built-in validators:
 | `ISO_3166_COUNTRY_ALPHA3` | 3-letter country codes | 249 | `USA`, `GBR`, `FRA`, `DEU` |
 | `ISO_4217_CURRENCY` | 3-letter currency codes | 210+ | `USD`, `EUR`, `GBP`, `JPY` |
 | `HTTP_STATUS_CODE` | HTTP status codes | 60+ | `200`, `404`, `500`, `503` |
+| `US_STATE_CODE` | 2-letter US state codes | 59 | `CA`, `NY`, `TX`, `DC`, `PR` |
+| `DAY_OF_WEEK` | Day names (full + abbrev) | 21 | `monday`, `mon`, `friday`, `fri` |
+| `MONTH_NAME` | Month names (full + abbrev) | 24 | `january`, `jan`, `december`, `dec` |
 
-Set-based validators use HashSet for O(1) lookup (~15ns) and are case-insensitive. They're optimized for real-world closed sets like airport codes and ISO standards.
+Set-based validators use HashSet for O(1) lookup (~15ns) and are case-insensitive. They're optimized for real-world closed sets like airport codes, ISO standards, and regional/temporal data.
 
 ### 3.3 Multiple Validators in a Single Path
 
@@ -209,6 +212,31 @@ Lookup behavior:
 - ✅ `/content/fr/FR/news` → Matches (French content for France)
 - ❌ `/content/xyz/US/news` → **No match** (xyz not a valid language code)
 - ❌ `/content/en/XX/news` → **No match** (XX not a valid country code)
+
+**Example: Regional and Temporal Routing**
+
+```java
+// Regional delivery schedule API
+trie.insert("/api/delivery/{state}/{day}/windows",
+    Map.of(
+        "state", SegmentValidator.US_STATE_CODE,  // CA, NY, TX, DC, PR
+        "day", SegmentValidator.DAY_OF_WEEK       // monday, mon, fri
+    ));
+
+// Monthly analytics by region
+trie.insert("/api/analytics/{state}/{month}/metrics",
+    Map.of(
+        "state", SegmentValidator.US_STATE_CODE,  // CA, NY, TX
+        "month", SegmentValidator.MONTH_NAME      // january, jan, dec
+    ));
+```
+
+Lookup behavior:
+- ✅ `/api/delivery/CA/monday/windows` → Matches (California on Monday)
+- ✅ `/api/delivery/NY/fri/windows` → Matches (New York on Friday)
+- ✅ `/api/analytics/TX/jan/metrics` → Matches (Texas in January)
+- ❌ `/api/delivery/ZZ/monday/windows` → **No match** (ZZ not a valid state)
+- ❌ `/api/delivery/CA/notaday/windows` → **No match** (invalid day)
 
 **Example: Mixed ID Types**
 

@@ -30,7 +30,7 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         "You are an API pattern analyzer. Given a concrete HTTP path, infer the parameterized template.\n" +
         "Rules:\n" +
         "1. Replace dynamic segments with {paramName} placeholders\n" +
-        "2. Use semantic parameter names (e.g., {id}, {name}, {userId}, {companyId}, {lang}, {country}, {currency})\n" +
+        "2. Use semantic parameter names (e.g., {id}, {name}, {userId}, {companyId}, {lang}, {country}, {currency}, {state}, {day}, {month})\n" +
         "3. Identify segment types:\n" +
         "   - NUMERIC: digits only (e.g., 123, 456)\n" +
         "   - UUID: standard format (e.g., 550e8400-e29b-41d4-a716-446655440000)\n" +
@@ -43,6 +43,9 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         "   - COUNTRY_ALPHA3: 3-letter country code (e.g., USA, GBR, FRA)\n" +
         "   - CURRENCY: 3-letter currency code (e.g., USD, EUR, GBP, JPY)\n" +
         "   - HTTP_STATUS: 3-digit HTTP status code (e.g., 200, 404, 500)\n" +
+        "   - US_STATE: 2-letter US state code (e.g., CA, NY, TX, DC, PR)\n" +
+        "   - DAY_OF_WEEK: day name or abbreviation (e.g., monday, mon, friday, fri)\n" +
+        "   - MONTH_NAME: month name or abbreviation (e.g., january, jan, december, dec)\n" +
         "   - ANY: any other non-empty string\n" +
         "4. Return ONLY valid JSON, no explanatory text\n" +
         "5. Keep literal segments as-is (e.g., /api, /users, /posts)\n" +
@@ -56,7 +59,10 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         "- /prices/USD/products -> {\"template\": \"/prices/{currency}/products\", \"validators\": {\"currency\": \"CURRENCY\"}}\n" +
         "- /status/404/info -> {\"template\": \"/status/{code}/info\", \"validators\": {\"code\": \"HTTP_STATUS\"}}\n" +
         "- /api/orders/550e8400-e29b-41d4-a716-446655440000 -> {\"template\": \"/api/orders/{id}\", \"validators\": {\"id\": \"UUID\"}}\n" +
-        "- /api/companies/64e7a294e854ff2eb3550075/config -> {\"template\": \"/api/companies/{companyId}/config\", \"validators\": {\"companyId\": \"MONGODB\"}}";
+        "- /api/companies/64e7a294e854ff2eb3550075/config -> {\"template\": \"/api/companies/{companyId}/config\", \"validators\": {\"companyId\": \"MONGODB\"}}\n" +
+        "- /api/pricing/CA/rates -> {\"template\": \"/api/pricing/{state}/rates\", \"validators\": {\"state\": \"US_STATE\"}}\n" +
+        "- /api/availability/monday/slots -> {\"template\": \"/api/availability/{day}/slots\", \"validators\": {\"day\": \"DAY_OF_WEEK\"}}\n" +
+        "- /api/reports/2024/january/summary -> {\"template\": \"/api/reports/{year}/{month}/summary\", \"validators\": {\"year\": \"NUMERIC\", \"month\": \"MONTH_NAME\"}}";
 
     /**
      * Creates a Bedrock inference service with default configuration.
@@ -252,6 +258,15 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
 
             // HTTP status codes
             case "HTTP_STATUS", "HTTP_STATUS_CODE", "STATUS_CODE", "STATUS" -> SegmentValidator.HTTP_STATUS_CODE;
+
+            // US state codes
+            case "US_STATE", "US_STATE_CODE", "STATE", "STATE_CODE" -> SegmentValidator.US_STATE_CODE;
+
+            // Day of week
+            case "DAY_OF_WEEK", "DAY", "WEEKDAY" -> SegmentValidator.DAY_OF_WEEK;
+
+            // Month names
+            case "MONTH_NAME", "MONTH" -> SegmentValidator.MONTH_NAME;
 
             // Default
             default -> SegmentValidator.ANY;
