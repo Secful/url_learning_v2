@@ -8,7 +8,23 @@
 
 ### Real-World Example: Production API Trie
 
-Here's how 5 real API endpoints are organized in the trie structure:
+**Input:** 5 concrete API requests with actual IDs (what the trie receives):
+
+```
+/api/v2/companies/645d4369eb31790784df4dc0/posturegaps
+/api/v2/companies/654bc386246a8b65e779ec64/sensitive/data/grouping/parameter
+/api/v2/companies/68af3287aa9ad44acdf6372f/timelinesteps/696f4b52803c910ea8a10df8
+/api/v2/recon/organizations/68befe54c85efb6b109d1716/rescan
+/api/v2/validation-rules/rules/6847c8c41b0000935dc44d38/toggle-activation
+```
+
+**Output:** The trie maps each concrete path to its parameterized template:
+- `645d4369eb31790784df4dc0` → `{companyId}` (MongoDB ObjectID)
+- `696f4b52803c910ea8a10df8` → `{stepId}` (MongoDB ObjectID)
+- `68befe54c85efb6b109d1716` → `{orgId}` (MongoDB ObjectID)
+- etc.
+
+**Trie Structure:** Here's how these paths are organized internally after templates are learned:
 
 ```mermaid
 graph TD
@@ -55,9 +71,17 @@ graph TD
 ```
 
 **Legend:**
-- 🟢 **Green (✓)**: Leaf nodes storing complete template strings
-- 🟡 **Yellow diamonds**: Wildcard segments (match MongoDB ObjectIDs)
-- 🔵 **Blue rectangles**: Literal segments (exact match required)
+
+*Node Shape (matching type):*
+- **Rectangle** `[text]`: Literal segment (exact string match required)
+- **Diamond** `{text}`: Wildcard segment (parameter capture with validation)
+- **Circle** `((text))`: Root node
+
+*Node Color (endpoint status):*
+- 🟢 **Green with ✓**: Leaf node (endpoint storing complete template string)
+- 🟡 **Yellow**: Wildcard node (intermediate, not an endpoint)
+- 🔵 **Blue**: Literal node (intermediate, not an endpoint)
+- 🟠 **Orange**: Root node
 
 **Key Insights:**
 - **Prefix sharing**: All 5 paths share `/api/v2`, requiring only 2 nodes for common prefix
