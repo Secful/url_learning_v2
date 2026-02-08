@@ -46,13 +46,86 @@ Each wildcard node carries metadata:
 
 Built-in validators:
 
-| Validator | Matches                          | Example              |
-|-----------|----------------------------------|----------------------|
-| `ANY`     | Any non-empty segment            | `jack`, `123`, `abc` |
-| `NUMERIC` | Digits only                      | `123`, `42`          |
-| `UUID`    | Standard UUID format             | `550e8400-e29b-...`  |
+**Pattern-based Validators:**
 
-### 3.3 Trie Structure Example
+| Validator | Matches | Example |
+|-----------|---------|---------|
+| `ANY` | Any non-empty segment | `jack`, `123`, `abc-def` |
+| `NUMERIC` | Digits only (e.g., IDs) | `123`, `42`, `999` |
+| `UUID` | Standard UUID format | `550e8400-e29b-41d4-a716-446655440000` |
+| `MONGODB_ID` | MongoDB ObjectId (24 hex chars) | `64e7a294e854ff2eb3550075` |
+
+**Set-based Validators (Closed Sets):**
+
+| Validator | Type | Count | Examples |
+|-----------|------|-------|----------|
+| `IATA_AIRPORT` | 3-letter airport codes | 500+ | `JFK`, `LAX`, `LHR`, `CDG` |
+| `ICAO_AIRPORT` | 4-letter airport codes | 300+ | `KJFK`, `EGLL`, `LFPG` |
+| `ISO_639_1_LANGUAGE` | 2-letter language codes | 184 | `en`, `es`, `fr`, `de`, `zh` |
+| `ISO_639_2_LANGUAGE` | 3-letter language codes | 200+ | `eng`, `spa`, `fra`, `deu` |
+| `ISO_3166_COUNTRY_ALPHA2` | 2-letter country codes | 249 | `US`, `GB`, `FR`, `DE`, `CN` |
+| `ISO_3166_COUNTRY_ALPHA3` | 3-letter country codes | 249 | `USA`, `GBR`, `FRA`, `DEU` |
+| `ISO_4217_CURRENCY` | 3-letter currency codes | 210+ | `USD`, `EUR`, `GBP`, `JPY` |
+| `HTTP_STATUS_CODE` | HTTP status codes | 60+ | `200`, `404`, `500`, `503` |
+
+Set-based validators use HashSet for O(1) lookup (~15ns) and are case-insensitive. They're optimized for real-world closed sets like airport codes and ISO standards.
+
+### 3.3 Multiple Validators in a Single Path
+
+A single path template can use **different validators for different parameters**, enabling precise validation of complex API patterns.
+
+**Example: Flight Search API**
+
+```java
+trie.insert("/flights/{origin}/{destination}/prices/{currency}",
+    Map.of(
+        "origin", SegmentValidator.IATA_AIRPORT,      // JFK, LAX, LHR
+        "destination", SegmentValidator.IATA_AIRPORT,  // Must be valid airport codes
+        "currency", SegmentValidator.ISO_4217_CURRENCY // USD, EUR, GBP
+    ));
+```
+
+Lookup behavior:
+- ✅ `/flights/JFK/LAX/prices/USD` → Matches (all valid)
+- ✅ `/flights/LHR/CDG/prices/EUR` → Matches (all valid)
+- ❌ `/flights/XYZ/LAX/prices/USD` → **No match** (XYZ not a valid IATA code)
+- ❌ `/flights/JFK/LAX/prices/ZZZ` → **No match** (ZZZ not a valid currency)
+
+**Example: Internationalized Content API**
+
+```java
+trie.insert("/content/{lang}/{country}/news",
+    Map.of(
+        "lang", SegmentValidator.ISO_639_1_LANGUAGE,        // en, es, fr
+        "country", SegmentValidator.ISO_3166_COUNTRY_ALPHA2 // US, GB, FR
+    ));
+```
+
+Lookup behavior:
+- ✅ `/content/en/US/news` → Matches (valid language + country)
+- ✅ `/content/fr/FR/news` → Matches (French content for France)
+- ❌ `/content/xyz/US/news` → **No match** (xyz not a valid language code)
+- ❌ `/content/en/XX/news` → **No match** (XX not a valid country code)
+
+**Example: Mixed ID Types**
+
+```java
+// Company endpoint with MongoDB ID
+trie.insert("/api/companies/{companyId}/config",
+    Map.of("companyId", SegmentValidator.MONGODB_ID));
+
+// Order endpoint with UUID
+trie.insert("/api/orders/{orderId}/details",
+    Map.of("orderId", SegmentValidator.UUID));
+
+// User endpoint with numeric ID
+trie.insert("/api/users/{userId}/profile",
+    Map.of("userId", SegmentValidator.NUMERIC));
+```
+
+The trie will correctly route each path based on the ID format, preventing cross-contamination of different resource types.
+
+### 3.4 Trie Structure Example
 
 Given these registered templates:
 

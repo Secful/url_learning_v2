@@ -13,14 +13,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests using actual API trace data from DuckDB production traces.
- * Tests start with an EMPTY trie and use LLM to infer templates on cache miss.
- * This demonstrates the complete flow: empty cache → LLM inference → populate trie → cache hit.
+ * Tests use PathResolverService - the production API.
+ * Demonstrates the complete flow: empty cache → LLM inference → populate cache → cache hit.
  */
 class RealWorldTracesTest {
     private static final Logger logger = Logger.getLogger(RealWorldTracesTest.class.getName());
 
-    private PathTemplateTrie trie;
-    private BedrockTemplateInferenceService llmService;
     private PathResolverService resolver;
 
     // Sample paths from DuckDB traces database
@@ -54,12 +52,22 @@ class RealWorldTracesTest {
 
     @BeforeEach
     void setUp() {
-        // Start with EMPTY trie
-        trie = new PathTemplateTrie();
-        llmService = new BedrockTemplateInferenceService(Region.US_EAST_1, "us.anthropic.claude-3-5-sonnet-20241022-v2:0");
-        resolver = new PathResolverService(trie, llmService);
+        // Create resolver with empty cache
+        resolver = createResolver();
+        logger.info("===== Test Setup: Empty cache, will use LLM to infer templates =====");
+    }
 
-        logger.info("===== Test Setup: Empty trie, will use LLM to infer templates =====");
+    /**
+     * Creates a PathResolverService with default configuration.
+     * Implementation detail: Uses Bedrock Claude for LLM inference.
+     */
+    private PathResolverService createResolver() {
+        PathTemplateTrie trie = new PathTemplateTrie();
+        BedrockTemplateInferenceService llmService = new BedrockTemplateInferenceService(
+            Region.US_EAST_1,
+            "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        );
+        return new PathResolverService(trie, llmService);
     }
 
     @Test
@@ -68,7 +76,7 @@ class RealWorldTracesTest {
         String path = "/api/v2/companies/64b7f64b848b4d06689cd28c/insights/status";
 
         logger.info("Trie is empty. Resolving: " + path);
-        assertEquals(0, trie.listTemplates().size(), "Trie should start empty");
+        assertTrue(resolver.getCacheStats().contains("0 templates"), "Cache should start empty");
 
         MatchResult result = resolver.resolve(path);
 
@@ -76,7 +84,7 @@ class RealWorldTracesTest {
         logger.info("LLM inferred template: " + result.getTemplate());
 
         // Verify template was cached
-        assertEquals(1, trie.listTemplates().size(), "Template should be cached in trie");
+        assertTrue(resolver.getCacheStats().contains("1 template"), "Template should be cached");
         assertTrue(result.getTemplate().contains("{"), "Template should have parameters");
     }
 
@@ -91,7 +99,7 @@ class RealWorldTracesTest {
         };
 
         logger.info("=== Testing cache convergence ===");
-        assertEquals(0, trie.listTemplates().size(), "Trie should start empty");
+        assertTrue(resolver.getCacheStats().contains("0 templates"), "Cache should start empty");
 
         for (String path : companyPaths) {
             logger.info("Resolving: " + path);
@@ -100,13 +108,11 @@ class RealWorldTracesTest {
             logger.info("  Resolved to: " + result.getTemplate());
         }
 
-        int templateCount = trie.listTemplates().size();
-        logger.info("Final trie contains " + templateCount + " templates");
-        assertTrue(templateCount > 0, "Trie should have cached templates");
+        logger.info("Final cache state: " + resolver.getCacheStats());
 
         // Show all cached templates
         logger.info("Cached templates:");
-        for (String template : trie.listTemplates()) {
+        for (String template : resolver.getTrie().listTemplates()) {
             logger.info("  " + template);
         }
     }
@@ -201,7 +207,7 @@ class RealWorldTracesTest {
         assertNotNull(result2);
         logger.info("Result: " + result2.getTemplate());
 
-        logger.info("Total templates in trie: " + trie.listTemplates().size());
+        logger.info("Cache state: " + resolver.getCacheStats());
     }
 
     @Test
@@ -222,7 +228,7 @@ class RealWorldTracesTest {
         }
 
         logger.info("Successfully resolved " + successCount + " out of " + SAMPLE_PATHS.length + " paths");
-        logger.info("Final trie contains " + trie.listTemplates().size() + " templates");
+        logger.info("Final cache state: " + resolver.getCacheStats());
 
         // Should resolve at least most paths
         assertTrue(successCount >= SAMPLE_PATHS.length * 0.8,
@@ -230,7 +236,7 @@ class RealWorldTracesTest {
 
         // Show final cached templates
         logger.info("=== Final cached templates ===");
-        for (String template : trie.listTemplates()) {
+        for (String template : resolver.getTrie().listTemplates()) {
             logger.info("  " + template);
         }
     }

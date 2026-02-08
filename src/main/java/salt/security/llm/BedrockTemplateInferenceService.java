@@ -229,67 +229,33 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
 
         String upperType = type.toUpperCase().replace("-", "_");
 
-        switch (upperType) {
+        return switch (upperType) {
             // Pattern-based validators
-            case "NUMERIC":
-                return SegmentValidator.NUMERIC;
-            case "UUID":
-                return SegmentValidator.UUID;
-            case "OBJECTID":
-            case "MONGODB":
-            case "OBJECT":
-                return MONGODB_ID;
+            case "NUMERIC" -> SegmentValidator.NUMERIC;
+            case "UUID" -> SegmentValidator.UUID;
+            case "OBJECTID", "MONGODB", "OBJECT" -> MONGODB_ID;
 
             // Airport codes
-            case "IATA_AIRPORT":
-            case "IATA":
-            case "AIRPORT_IATA":
-                return SegmentValidator.IATA_AIRPORT;
-            case "ICAO_AIRPORT":
-            case "ICAO":
-            case "AIRPORT_ICAO":
-                return SegmentValidator.ICAO_AIRPORT;
+            case "IATA_AIRPORT", "IATA", "AIRPORT_IATA" -> SegmentValidator.IATA_AIRPORT;
+            case "ICAO_AIRPORT", "ICAO", "AIRPORT_ICAO" -> SegmentValidator.ICAO_AIRPORT;
 
             // Language codes
-            case "ISO_639_1":
-            case "ISO_639_1_LANGUAGE":
-            case "LANGUAGE":
-            case "LANG":
-                return SegmentValidator.ISO_639_1_LANGUAGE;
-            case "ISO_639_2":
-            case "ISO_639_2_LANGUAGE":
-            case "LANGUAGE_3":
-                return SegmentValidator.ISO_639_2_LANGUAGE;
+            case "ISO_639_1", "ISO_639_1_LANGUAGE", "LANGUAGE", "LANG" -> SegmentValidator.ISO_639_1_LANGUAGE;
+            case "ISO_639_2", "ISO_639_2_LANGUAGE", "LANGUAGE_3" -> SegmentValidator.ISO_639_2_LANGUAGE;
 
             // Country codes
-            case "COUNTRY_ALPHA2":
-            case "ISO_3166_ALPHA2":
-            case "COUNTRY":
-            case "ISO_3166":
-                return SegmentValidator.ISO_3166_COUNTRY_ALPHA2;
-            case "COUNTRY_ALPHA3":
-            case "ISO_3166_ALPHA3":
-            case "COUNTRY_3":
-                return SegmentValidator.ISO_3166_COUNTRY_ALPHA3;
+            case "COUNTRY_ALPHA2", "ISO_3166_ALPHA2", "COUNTRY", "ISO_3166" -> SegmentValidator.ISO_3166_COUNTRY_ALPHA2;
+            case "COUNTRY_ALPHA3", "ISO_3166_ALPHA3", "COUNTRY_3" -> SegmentValidator.ISO_3166_COUNTRY_ALPHA3;
 
             // Currency codes
-            case "CURRENCY":
-            case "ISO_4217":
-            case "ISO_4217_CURRENCY":
-                return SegmentValidator.ISO_4217_CURRENCY;
+            case "CURRENCY", "ISO_4217", "ISO_4217_CURRENCY" -> SegmentValidator.ISO_4217_CURRENCY;
 
             // HTTP status codes
-            case "HTTP_STATUS":
-            case "HTTP_STATUS_CODE":
-            case "STATUS_CODE":
-            case "STATUS":
-                return SegmentValidator.HTTP_STATUS_CODE;
+            case "HTTP_STATUS", "HTTP_STATUS_CODE", "STATUS_CODE", "STATUS" -> SegmentValidator.HTTP_STATUS_CODE;
 
             // Default
-            case "ANY":
-            default:
-                return SegmentValidator.ANY;
-        }
+            default -> SegmentValidator.ANY;
+        };
     }
 
     /**
