@@ -17,7 +17,6 @@ import java.util.regex.Pattern;
 public class PathTemplateTrie {
     private final TrieNode root;
     private final ReadWriteLock lock;
-    private static final Pattern PARAM_PATTERN = Pattern.compile("\\{([^}]+)}");
 
     /**
      * Creates a new empty path template trie.

@@ -92,61 +92,6 @@ public class TrieNode {
         return null;
     }
 
-    // =========================================================================
-    // DEPRECATED METHODS - Kept for backward compatibility during migration
-    // =========================================================================
-
-    /**
-     * @deprecated Use getWildcardChildren() instead.
-     * Returns the first wildcard child node, if one exists.
-     *
-     * @return the first wildcard child node, or null if none exists
-     */
-    @Deprecated
-    public TrieNode getWildcardChild() {
-        return wildcardChildren.isEmpty() ? null : wildcardChildren.get(0).getNode();
-    }
-
-    /**
-     * @deprecated Use addWildcardChild(WildcardChild) instead.
-     * Sets the wildcard child node (legacy single-wildcard API).
-     *
-     * @param wildcardChild the wildcard child node
-     */
-    @Deprecated
-    public void setWildcardChild(TrieNode wildcardChild) {
-        // This method is kept for backward compatibility but should not be used
-        // It will be removed in a future version
-        throw new UnsupportedOperationException(
-            "setWildcardChild() is deprecated. Use addWildcardChild(WildcardChild) instead."
-        );
-    }
-
-    /**
-     * @deprecated Use getWildcardChildren() instead.
-     * Returns the wildcard definition for the first wildcard child.
-     *
-     * @return the wildcard definition, or null if no wildcard children exist
-     */
-    @Deprecated
-    public WildcardDef getWildcardDef() {
-        return wildcardChildren.isEmpty() ? null : wildcardChildren.get(0).getDef();
-    }
-
-    /**
-     * @deprecated Use addWildcardChild(WildcardChild) instead.
-     * Sets the wildcard definition (legacy single-wildcard API).
-     *
-     * @param wildcardDef the wildcard definition
-     */
-    @Deprecated
-    public void setWildcardDef(WildcardDef wildcardDef) {
-        // This method is kept for backward compatibility but should not be used
-        throw new UnsupportedOperationException(
-            "setWildcardDef() is deprecated. Use addWildcardChild(WildcardChild) instead."
-        );
-    }
-
     /**
      * Returns the template stored at this node.
      *
