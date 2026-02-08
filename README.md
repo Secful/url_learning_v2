@@ -1,5 +1,79 @@
 # Path Template Trie — Design Document ("URL Learning")
 
+## TL;DR
+
+**What it does:** Maps concrete API paths (e.g., `/api/v2/companies/645d4369eb31790784df4dc0/posturegaps`) to parameterized templates (e.g., `/api/v2/companies/{companyId}/posturegaps`) in **~1 microsecond** using a prefix tree.
+
+**Why it's fast:** O(k) lookup complexity where k = number of path segments (typically 3-8). No regex scanning, no linear search through thousands of patterns.
+
+### Real-World Example: Production API Trie
+
+Here's how 5 real API endpoints are organized in the trie structure:
+
+```mermaid
+graph TD
+    root((ROOT))
+    root --> api[api]
+    api --> v2[v2]
+
+    %% Branch 1: companies
+    v2 --> companies[companies]
+    companies --> companyId{"{companyId}<br/>MongoDB ObjectID"}
+
+    companyId --> posturegaps["✓ posturegaps"]
+
+    companyId --> sensitive[sensitive]
+    sensitive --> data[data]
+    data --> grouping[grouping]
+    grouping --> parameter["✓ parameter"]
+
+    companyId --> timelinesteps[timelinesteps]
+    timelinesteps --> stepId{"{stepId}<br/>✓ MongoDB ObjectID"}
+
+    %% Branch 2: recon
+    v2 --> recon[recon]
+    recon --> organizations[organizations]
+    organizations --> orgId{"{orgId}<br/>MongoDB ObjectID"}
+    orgId --> rescan["✓ rescan"]
+
+    %% Branch 3: validation-rules
+    v2 --> validationRules[validation-rules]
+    validationRules --> rules[rules]
+    rules --> ruleId{"{ruleId}<br/>MongoDB ObjectID"}
+    ruleId --> toggleActivation["✓ toggle-activation"]
+
+    %% Styling
+    classDef leafNode fill:#90EE90,stroke:#2E7D32,stroke-width:3px
+    classDef wildcardNode fill:#FFD700,stroke:#F57C00,stroke-width:2px
+    classDef literalNode fill:#E3F2FD,stroke:#1976D2,stroke-width:1px
+    classDef rootNode fill:#FFF3E0,stroke:#E65100,stroke-width:3px
+
+    class posturegaps,parameter,stepId,rescan,toggleActivation leafNode
+    class companyId,orgId,ruleId wildcardNode
+    class api,v2,companies,sensitive,data,grouping,timelinesteps,recon,organizations,validationRules,rules literalNode
+    class root rootNode
+```
+
+**Legend:**
+- 🟢 **Green (✓)**: Leaf nodes storing complete template strings
+- 🟡 **Yellow diamonds**: Wildcard segments (match MongoDB ObjectIDs)
+- 🔵 **Blue rectangles**: Literal segments (exact match required)
+
+**Key Insights:**
+- **Prefix sharing**: All 5 paths share `/api/v2`, requiring only 2 nodes for common prefix
+- **Branch factor**: 3 main branches at depth 3 (`companies`, `recon`, `validation-rules`)
+- **Max depth**: 8 segments for longest path (`/api/v2/companies/{id}/sensitive/data/grouping/parameter`)
+- **Lookup speed**: ~0.93 µs average (1.07M lookups/second) when cache is warm
+
+**Performance: Cold vs Warm Cache**
+| Scenario | Lookup Time | Operations |
+|----------|-------------|------------|
+| **Cold cache** (empty trie, calls LLM) | ~1+ second | LLM inference + trie insert |
+| **Warm cache** (template cached) | **~0.93 µs** | Tree walk only (8 nodes max) |
+| **Speedup** | **600,000×** faster | No LLM, no regex, just pointer hops |
+
+---
+
 ## 1. Overview
 
 The Path Template Trie is a data structure for resolving concrete HTTP paths (e.g., `/users/jack/posts/123`) into parameterized API templates (e.g., `/users/{name}/posts/{id}`). It serves as the core lookup mechanism in the API discovery pipeline, replacing regex-based pattern matching with a deterministic, segment-level trie traversal.
