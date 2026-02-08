@@ -401,32 +401,32 @@ The `ConcurrentHashMap` for literal children provides additional safety for conc
 
 ---
 
-## 9. Limitations and Future Considerations
+## 9. Capabilities and Limitations
 
-### ✅ Resolved Limitations
+### ✅ Current Capabilities
 
-**Multiple wildcards at the same level** — ~~each node supports at most one wildcard child~~ **RESOLVED**. As of the latest implementation, each node maintains a `List<WildcardChild>` allowing multiple validators at the same position. This enables:
-- **API versioning**: v1 uses numeric IDs, v2 uses UUIDs at the same path position
+**Multiple validators at the same position** — Each trie node supports multiple wildcard children with different validators. This enables:
+- **API versioning**: Different API versions can use different ID formats at the same path position
 - **Migration scenarios**: Legacy and new ID formats coexist during transitions
-- **Multi-format support**: Same endpoint accepts different ID formats simultaneously
+- **Multi-format support**: Same endpoint accepts different ID types simultaneously
 
 Example:
 ```java
-// Both work at the same path position
+// Both validators at the same position
 trie.insert("/api/users/{id}/profile", Map.of("id", NUMERIC));
 trie.insert("/api/users/{id}/profile", Map.of("id", UUID));
 
-// Now both formats are valid:
+// Both formats are valid:
 lookup("/api/users/123/profile")                           → ✓ matches NUMERIC
 lookup("/api/users/550e8400-e29b-41d4-a716-.../profile")   → ✓ matches UUID
 ```
 
-Performance impact: Negligible (~0.01 µs increase). Each wildcard validator is tried in order until one matches, maintaining sub-microsecond lookup times.
+Performance: Each wildcard validator is tried in order until one matches. Impact is negligible (~0.01 µs per additional validator), maintaining sub-microsecond lookup times.
 
 ### ⚠️ Current Limitations
 
-**Multi-segment wildcards** — the current design matches one segment per wildcard. Paths like `/files/{filepath}` where filepath spans multiple segments (e.g., `a/b/c.txt`) are not supported. These would require a greedy wildcard node type that consumes remaining segments. Recommendation: handle these as LLM fallback cases until the pattern is common enough to warrant the added complexity.
+**Multi-segment wildcards** — Each wildcard matches exactly one path segment. Paths like `/files/{filepath}` where `filepath` spans multiple segments (e.g., `a/b/c.txt`) are not supported. Such patterns require a greedy wildcard that consumes remaining segments. Current recommendation: handle these through LLM inference on cache miss.
 
-**Persistence** — the trie is in-memory only. On restart, it must be rebuilt. The `listTemplates()` method enables serialization: dump all templates to a file/database and re-insert on startup.
+**In-memory only** — The trie persists only in memory. On application restart, the trie must be rebuilt from stored templates. The `listTemplates()` method enables persistence: serialize all templates to storage and re-insert on startup.
 
-**Template conflict detection** — inserting two templates that resolve identically (e.g., `/users/{name}` and `/users/{id}` both with ANY validator) may create ambiguous paths. A conflict detection mechanism could warn on ambiguous inserts.
+**No conflict detection** — Inserting overlapping templates (e.g., `/users/{name}` and `/users/{id}` both with ANY validator) creates ambiguous paths. The trie accepts both without warning. The first matching validator during lookup determines which template is used.
