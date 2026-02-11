@@ -3,8 +3,6 @@ package salt.security.trie;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Path Template Trie for resolving concrete HTTP paths to parameterized API templates.
@@ -60,7 +58,7 @@ public class PathTemplateTrie {
 
                     if (existingWildcard != null) {
                         // Reuse existing wildcard path with the same validator
-                        node = existingWildcard.getNode();
+                        node = existingWildcard.node();
                     } else {
                         // Create new wildcard child with this validator
                         TrieNode newWildcardNode = new TrieNode();
@@ -141,13 +139,13 @@ public class PathTemplateTrie {
 
         // Priority 2: Try all wildcard matches
         for (WildcardChild wildcardChild : node.getWildcardChildren()) {
-            WildcardDef wildcardDef = wildcardChild.getDef();
-            if (wildcardDef.getValidator().test(segment)) {
+            WildcardDef wildcardDef = wildcardChild.def();
+            if (wildcardDef.validator().test(segment)) {
                 // Capture parameter
-                String paramName = wildcardDef.getParamName();
+                String paramName = wildcardDef.paramName();
                 params.put(paramName, segment);
 
-                MatchResult result = doLookup(wildcardChild.getNode(), segments, depth + 1, params);
+                MatchResult result = doLookup(wildcardChild.node(), segments, depth + 1, params);
                 if (result != null) {
                     return result;  // Found a matching path!
                 }
@@ -189,7 +187,7 @@ public class PathTemplateTrie {
                     if (wildcards.isEmpty()) {
                         return false; // Template not found
                     }
-                    node = wildcards.get(0).getNode();
+                    node = wildcards.get(0).node();
                 } else {
                     String key = segment.toLowerCase();
                     node = node.getLiterals().get(key);
@@ -245,7 +243,7 @@ public class PathTemplateTrie {
 
         // Collect from all wildcard children
         for (WildcardChild wildcardChild : node.getWildcardChildren()) {
-            collectTemplates(wildcardChild.getNode(), templates);
+            collectTemplates(wildcardChild.node(), templates);
         }
     }
 

@@ -2,38 +2,33 @@ package salt.security.trie;
 
 /**
  * Represents a wildcard child in the trie.
- *
+ * <p>
  * This class encapsulates a wildcard node along with its definition (parameter name and validator).
  * Multiple WildcardChild instances can exist at the same trie level, allowing different validators
  * for the same path position. This enables support for:
  * - Multiple API versions with different ID formats
  * - Migration scenarios where old and new formats coexist
  * - Different validation rules for the same parameter position
- *
+ * <p>
  * Example:
- *   Path position: /api/users/{id}/profile
- *   WildcardChild 1: validator=NUMERIC  → matches /api/users/123/profile
- *   WildcardChild 2: validator=UUID     → matches /api/users/550e8400-.../profile
+ * Path position: /api/users/{id}/profile
+ * WildcardChild 1: validator=NUMERIC  → matches /api/users/123/profile
+ * WildcardChild 2: validator=UUID     → matches /api/users/550e8400-.../profile
  */
-public class WildcardChild {
-    private final TrieNode node;
-    private final WildcardDef def;
-
+public record WildcardChild(TrieNode node, WildcardDef def) {
     /**
      * Creates a wildcard child with the given node and definition.
      *
      * @param node the trie node representing the continuation of this wildcard path
-     * @param def the wildcard definition containing parameter name and validator
+     * @param def  the wildcard definition containing parameter name and validator
      */
-    public WildcardChild(TrieNode node, WildcardDef def) {
+    public WildcardChild {
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
         if (def == null) {
             throw new IllegalArgumentException("WildcardDef cannot be null");
         }
-        this.node = node;
-        this.def = def;
     }
 
     /**
@@ -41,7 +36,8 @@ public class WildcardChild {
      *
      * @return the trie node
      */
-    public TrieNode getNode() {
+    @Override
+    public TrieNode node() {
         return node;
     }
 
@@ -50,7 +46,8 @@ public class WildcardChild {
      *
      * @return the wildcard definition
      */
-    public WildcardDef getDef() {
+    @Override
+    public WildcardDef def() {
         return def;
     }
 
@@ -67,6 +64,6 @@ public class WildcardChild {
      * @return true if this wildcard child uses the same validator
      */
     public boolean matchesValidator(SegmentValidator validator) {
-        return this.def.getValidator().equals(validator);
+        return this.def.validator().equals(validator);
     }
 }

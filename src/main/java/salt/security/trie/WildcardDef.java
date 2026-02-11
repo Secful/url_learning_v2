@@ -4,25 +4,20 @@ package salt.security.trie;
  * Metadata for wildcard nodes in the trie.
  * Contains the parameter name and an optional validator for the segment value.
  */
-public class WildcardDef {
-    private final String paramName;
-    private final SegmentValidator validator;
-
+public record WildcardDef(String paramName, SegmentValidator validator) {
     /**
      * Creates a wildcard definition with the given parameter name and validator.
      *
      * @param paramName the name of the parameter (e.g., "id", "name")
      * @param validator the validator to apply to segment values (e.g., NUMERIC, UUID)
      */
-    public WildcardDef(String paramName, SegmentValidator validator) {
+    public WildcardDef {
         if (paramName == null || paramName.isEmpty()) {
             throw new IllegalArgumentException("Parameter name cannot be null or empty");
         }
         if (validator == null) {
             throw new IllegalArgumentException("Validator cannot be null");
         }
-        this.paramName = paramName;
-        this.validator = validator;
     }
 
     /**
@@ -32,14 +27,6 @@ public class WildcardDef {
      */
     public WildcardDef(String paramName) {
         this(paramName, SegmentValidator.ANY);
-    }
-
-    public String getParamName() {
-        return paramName;
-    }
-
-    public SegmentValidator getValidator() {
-        return validator;
     }
 
     @Override
