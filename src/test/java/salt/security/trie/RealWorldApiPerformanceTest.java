@@ -74,6 +74,7 @@ class RealWorldApiPerformanceTest {
         initializeStripeStyleApi();
         initializeSlackStyleApi();
         initializeTwilioStyleApi();
+        initializeGitLabApi();
 
         logger.info("Initialized " + API_PATTERNS.size() + " API path patterns");
     }
@@ -351,6 +352,355 @@ class RealWorldApiPerformanceTest {
         ));
     }
 
+    /**
+     * GitLab API patterns (from real GitLab OpenAPI spec)
+     * Covers groups, projects, access control, CI/CD, packages, etc.
+     */
+    private static void initializeGitLabApi() {
+        // Group Management
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}",
+            "GitLab",
+            "/api/v4/groups/5",
+            "/api/v4/groups/my-group"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/subgroups",
+            "GitLab",
+            "/api/v4/groups/12/subgroups",
+            "/api/v4/groups/45/subgroups"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/descendant_groups",
+            "GitLab",
+            "/api/v4/groups/8/descendant_groups"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/projects",
+            "GitLab",
+            "/api/v4/groups/10/projects",
+            "/api/v4/groups/99/projects"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/projects/shared",
+            "GitLab",
+            "/api/v4/groups/15/projects/shared"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/projects/{project_id}",
+            "GitLab",
+            "/api/v4/groups/7/projects/42"
+        ));
+
+        // Access Control
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/access_requests",
+            "GitLab",
+            "/api/v4/groups/3/access_requests"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/access_requests/{user_id}/approve",
+            "GitLab",
+            "/api/v4/groups/11/access_requests/22/approve"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/access_requests/{user_id}",
+            "GitLab",
+            "/api/v4/groups/6/access_requests/18"
+        ));
+
+        // Badges & Customization
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/badges",
+            "GitLab",
+            "/api/v4/groups/9/badges"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/badges/{badge_id}",
+            "GitLab",
+            "/api/v4/groups/9/badges/14"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/custom_attributes",
+            "GitLab",
+            "/api/v4/groups/21/custom_attributes"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/custom_attributes/{key}",
+            "GitLab",
+            "/api/v4/groups/21/custom_attributes/department"
+        ));
+
+        // Award Emoji
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/epics/{epic_iid}/award_emoji",
+            "GitLab",
+            "/api/v4/groups/5/epics/2/award_emoji"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/epics/{epic_iid}/award_emoji/{award_id}",
+            "GitLab",
+            "/api/v4/groups/5/epics/2/award_emoji/7"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/epics/{epic_iid}/notes/{note_id}/award_emoji",
+            "GitLab",
+            "/api/v4/groups/5/epics/2/notes/3/award_emoji"
+        ));
+
+        // Audit & Security
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/audit_events",
+            "GitLab",
+            "/api/v4/groups/4/audit_events"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/audit_events/{audit_event_id}",
+            "GitLab",
+            "/api/v4/groups/4/audit_events/156"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/saml_users",
+            "GitLab",
+            "/api/v4/groups/8/saml_users"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/provisioned_users",
+            "GitLab",
+            "/api/v4/groups/19/provisioned_users"
+        ));
+
+        // SSH & Keys
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/ssh_certificates",
+            "GitLab",
+            "/api/v4/groups/13/ssh_certificates"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/ssh_certificates/{ssh_certificates_id}",
+            "GitLab",
+            "/api/v4/groups/13/ssh_certificates/5"
+        ));
+
+        // Runners & CI/CD
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/runners",
+            "GitLab",
+            "/api/v4/groups/20/runners"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/runners/reset_registration_token",
+            "GitLab",
+            "/api/v4/groups/20/runners/reset_registration_token"
+        ));
+
+        // Deployment & Resources
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/deploy_tokens",
+            "GitLab",
+            "/api/v4/groups/17/deploy_tokens"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/deploy_tokens/{token_id}",
+            "GitLab",
+            "/api/v4/groups/17/deploy_tokens/9"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/dependency_proxy/cache",
+            "GitLab",
+            "/api/v4/groups/25/dependency_proxy/cache"
+        ));
+
+        // Clusters & Infrastructure
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/clusters",
+            "GitLab",
+            "/api/v4/groups/11/clusters"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/clusters/{cluster_id}",
+            "GitLab",
+            "/api/v4/groups/11/clusters/3"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/clusters/user",
+            "GitLab",
+            "/api/v4/groups/11/clusters/user"
+        ));
+
+        // Container Registry
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/registry/repositories",
+            "GitLab",
+            "/api/v4/groups/14/registry/repositories"
+        ));
+
+        // Transfer & Organization
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/transfer_locations",
+            "GitLab",
+            "/api/v4/groups/16/transfer_locations"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/transfer",
+            "GitLab",
+            "/api/v4/groups/16/transfer"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/transfer_to_organization",
+            "GitLab",
+            "/api/v4/groups/16/transfer_to_organization"
+        ));
+
+        // Sharing & Administration
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/share",
+            "GitLab",
+            "/api/v4/groups/23/share"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/share/{group_id}",
+            "GitLab",
+            "/api/v4/groups/23/share/24"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/ldap_sync",
+            "GitLab",
+            "/api/v4/groups/27/ldap_sync"
+        ));
+
+        // Archive & Restoration
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/archive",
+            "GitLab",
+            "/api/v4/groups/30/archive"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/unarchive",
+            "GitLab",
+            "/api/v4/groups/31/unarchive"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/restore",
+            "GitLab",
+            "/api/v4/groups/32/restore"
+        ));
+
+        // Avatar & Metadata
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/groups/{id}/avatar",
+            "GitLab",
+            "/api/v4/groups/33/avatar"
+        ));
+
+        // Projects
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}",
+            "GitLab",
+            "/api/v4/projects/42",
+            "/api/v4/projects/123"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/issues",
+            "GitLab",
+            "/api/v4/projects/42/issues",
+            "/api/v4/projects/55/issues"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/issues/{issue_iid}",
+            "GitLab",
+            "/api/v4/projects/42/issues/15",
+            "/api/v4/projects/55/issues/27"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/merge_requests",
+            "GitLab",
+            "/api/v4/projects/42/merge_requests"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/merge_requests/{merge_request_iid}",
+            "GitLab",
+            "/api/v4/projects/42/merge_requests/99"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/pipelines",
+            "GitLab",
+            "/api/v4/projects/42/pipelines"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/pipelines/{pipeline_id}",
+            "GitLab",
+            "/api/v4/projects/42/pipelines/8765"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/repository/commits/{sha}",
+            "GitLab",
+            "/api/v4/projects/42/repository/commits/a1b2c3d4e5f6"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/repository/branches/{branch}",
+            "GitLab",
+            "/api/v4/projects/42/repository/branches/main",
+            "/api/v4/projects/42/repository/branches/develop"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/projects/{id}/repository/tags/{tag_name}",
+            "GitLab",
+            "/api/v4/projects/42/repository/tags/v1.0.0",
+            "/api/v4/projects/42/repository/tags/v2.3.1"
+        ));
+
+        // Users
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/users/{id}",
+            "GitLab",
+            "/api/v4/users/100",
+            "/api/v4/users/250"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v4/users/{id}/projects",
+            "GitLab",
+            "/api/v4/users/100/projects"
+        ));
+    }
+
     @Test
     @DisplayName("Full cycle: Empty trie → LLM learning → Warm cache performance (1M lookups)")
     void testFullCycleWithRealWorldApis() {
@@ -562,6 +912,10 @@ class RealWorldApiPerformanceTest {
         logger.info("\n" + "=".repeat(80));
         logger.info("TEST PASSED ✓");
         logger.info("=".repeat(80));
+        logger.info("LLM Accuracy:        " + totalCorrect + "/" + llmSuccessCount + " (" +
+            String.format("%.1f%%", 100.0 * totalCorrect / llmSuccessCount) + ")");
+        logger.info("Cache Success Rate:  " + successCount + "/" + testPaths.size() + " (" +
+            String.format("%.2f%%", 100.0 * successCount / testPaths.size()) + ")");
     }
 
     /**
