@@ -28,41 +28,173 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
 
     private static final String SYSTEM_PROMPT =
         "You are an API pattern analyzer. Given a concrete HTTP path, infer the parameterized template.\n" +
+        "\n" +
+        "CRITICAL RULE - ONE PARAMETER PER SEGMENT:\n" +
+        "Each path segment (text between '/' delimiters) must be EITHER:\n" +
+        "  - A literal: 'users', 'api', 'search'\n" +
+        "  - A single parameter: '{id}', '{slug}', '{recordId}'\n" +
+        "  - NEVER multiple parameters: '{countryCode}{number}' ❌ INVALID!\n" +
+        "\n" +
+        "Even if a segment contains multiple semantic parts (e.g., 'US12345678'),\n" +
+        "treat it as ONE parameter with ONE validator.\n" +
+        "Example: /records/US12345678 → /records/{recordId} with validator ALPHANUMERIC_ID\n" +
+        "NOT: /records/{country}{number} ❌\n" +
+        "\n" +
+        "ANALYSIS PROCESS:\n" +
+        "Step 1: Split path by '/' into segments\n" +
+        "\n" +
+        "Step 2: For each segment, ask: 'Could this value change between different API calls?'\n" +
+        "  - YES → Dynamic parameter (use ONE {placeholder} for the entire segment)\n" +
+        "  - NO → Literal segment (keep as-is)\n" +
+        "\n" +
+        "Step 3: If dynamic, select the MOST SPECIFIC validator that matches the ENTIRE segment:\n" +
+        "  - Match exact format first (UUID, NUMERIC, MONGODB, ALPHANUMERIC_ID, etc.)\n" +
+        "  - Then try semantic validators (IATA_AIRPORT, ISO_639_1, CURRENCY, etc.)\n" +
+        "  - Default to ANY only when no specific pattern applies\n" +
+        "\n" +
+        "Step 4: Verify your template can match ALL variations of this endpoint\n" +
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════════════\n" +
+        "LITERAL vs DYNAMIC DECISION (apply in priority order):\n" +
+        "\n" +
+        "A segment is LITERAL if it matches ANY of these:\n" +
+        "1. REST operations: search, list, all, create, update, delete, get, post, put, patch, find\n" +
+        "2. API structure: api, rest, graphql, v1, v2, v3, v4\n" +
+        "3. Resource collections (typically plurals): users, items, orders, products, posts, comments\n" +
+        "4. Action endpoints: info, details, settings, config, status, health, version, ping, metrics\n" +
+        "\n" +
+        "A segment is DYNAMIC if it matches ANY of these:\n" +
+        "1. Has a recognizable ID format:\n" +
+        "   - Pure numbers: 123, 456789\n" +
+        "   - UUIDs: 550e8400-e29b-41d4-a716-446655440000\n" +
+        "   - MongoDB IDs: 64e7a294e854ff2eb3550075\n" +
+        "   - Alphanumeric IDs: CHMA0000000001, AC1234567890, cus_123abc\n" +
+        "2. Contains hyphens/underscores indicating user-generated content:\n" +
+        "   - Slugs: getting-started, api-reference, how-to-guide\n" +
+        "   - Usernames: john_doe, jane-smith\n" +
+        "3. Single value after a collection noun: /users/john, /posts/my-first-post\n" +
+        "4. Parameterizable values: en, US, USD, JFK, monday, 404\n" +
+        "\n" +
+        "DEFAULT: When uncertain, treat as DYNAMIC (safer to over-parameterize than under-parameterize)\n" +
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════════════\n" +
+        "AVAILABLE VALIDATORS:\n" +
+        "\n" +
+        "Exact Format Validators (highest priority):\n" +
+        "- NUMERIC: digits only (e.g., 123, 456789)\n" +
+        "- UUID: standard 8-4-4-4-12 format (e.g., 550e8400-e29b-41d4-a716-446655440000)\n" +
+        "- MONGODB: exactly 24 hex characters (e.g., 64e7a294e854ff2eb3550075)\n" +
+        "- ALPHANUMERIC_ID: letter prefix + optional underscore + hex digits (e.g., CHMA0000000001, cus_123456789, C1234567890)\n" +
+        "- TIMESTAMP: Unix timestamp with microseconds - 10 digits + dot + 6 digits (e.g., 1765701919.171019, 1234567890.123456)\n" +
+        "\n" +
+        "Semantic Validators (use when format + context match):\n" +
+        "- IATA_AIRPORT: 3 uppercase letters (e.g., JFK, LAX, LHR)\n" +
+        "- ICAO_AIRPORT: 4 uppercase letters (e.g., KJFK, EGLL, LFPG)\n" +
+        "- ISO_639_1: 2 lowercase letters - language codes (e.g., en, es, fr, de)\n" +
+        "- ISO_639_2: 3 lowercase letters - language codes (e.g., eng, spa, fra)\n" +
+        "- COUNTRY_ALPHA2: 2 uppercase letters - country codes (e.g., US, GB, FR)\n" +
+        "- COUNTRY_ALPHA3: 3 uppercase letters - country codes (e.g., USA, GBR, FRA)\n" +
+        "- CURRENCY: 3 uppercase letters - currency codes (e.g., USD, EUR, GBP, JPY)\n" +
+        "- HTTP_STATUS: 3 digits 100-599 (e.g., 200, 404, 500)\n" +
+        "- US_STATE: 2 uppercase letters - US state codes (e.g., CA, NY, TX, FL)\n" +
+        "- DAY_OF_WEEK: day names/abbreviations (e.g., monday, mon, friday, fri)\n" +
+        "- MONTH_NAME: month names/abbreviations (e.g., january, jan, december, dec)\n" +
+        "\n" +
+        "Generic Validator (fallback):\n" +
+        "- ANY: any non-empty string (use when no specific pattern matches)\n" +
+        "\n" +
+        "VALIDATOR SELECTION RULES:\n" +
+        "1. Always choose the MOST SPECIFIC validator that matches\n" +
+        "2. Use semantic validators only when context supports them (e.g., /flights/JFK → IATA_AIRPORT)\n" +
+        "3. If segment is purely numeric, use NUMERIC (not ANY)\n" +
+        "4. If format matches UUID/MONGODB/ALPHANUMERIC_ID exactly, use that (not NUMERIC or ANY)\n" +
+        "5. Use ANY as last resort for unstructured strings (slugs, usernames, arbitrary text)\n" +
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════════════\n" +
+        "COMMON MISTAKES TO AVOID:\n" +
+        "\n" +
+        "❌ /records/US12345678 → {\"template\": \"/records/{countryCode}{number}\", ...}\n" +
+        "   ✓ /records/US12345678 → {\"template\": \"/records/{recordId}\", \"validators\": {\"recordId\": \"ALPHANUMERIC_ID\"}}\n" +
+        "   (NEVER split one segment into multiple parameters! One segment = one parameter max)\n" +
+        "\n" +
+        "❌ /api/products/search → {\"template\": \"/api/products/{action}\", ...}\n" +
+        "   ✓ /api/products/search → {\"template\": \"/api/products/search\", \"validators\": {}}\n" +
+        "   (search is a literal REST operation, not a parameter!)\n" +
+        "\n" +
+        "❌ /users/john_doe → {\"template\": \"/users/john_doe\", \"validators\": {}}\n" +
+        "   ✓ /users/john_doe → {\"template\": \"/users/{username}\", \"validators\": {\"username\": \"ANY\"}}\n" +
+        "   (john_doe varies between users, it's dynamic!)\n" +
+        "\n" +
+        "❌ /flights/JFK/arrivals → {\"template\": \"/flights/{code}/arrivals\", \"validators\": {\"code\": \"ANY\"}}\n" +
+        "   ✓ /flights/JFK/arrivals → {\"template\": \"/flights/{airport}/arrivals\", \"validators\": {\"airport\": \"IATA_AIRPORT\"}}\n" +
+        "   (JFK is 3 uppercase letters in flight context → use IATA_AIRPORT, not ANY!)\n" +
+        "\n" +
+        "❌ /api/orders/550e8400-e29b-41d4-a716-446655440000 → {..., \"validators\": {\"id\": \"NUMERIC\"}}\n" +
+        "   ✓ /api/orders/550e8400-e29b-41d4-a716-446655440000 → {..., \"validators\": {\"id\": \"UUID\"}}\n" +
+        "   (matches UUID format exactly → use UUID, not NUMERIC!)\n" +
+        "\n" +
+        "❌ /content/en/articles → {\"template\": \"/content/{lang}/articles\", \"validators\": {\"lang\": \"ANY\"}}\n" +
+        "   ✓ /content/en/articles → {\"template\": \"/content/{lang}/articles\", \"validators\": {\"lang\": \"ISO_639_1\"}}\n" +
+        "   (2-letter code in i18n context → use ISO_639_1, not ANY!)\n" +
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════════════\n" +
+        "EXAMPLES:\n" +
+        "\n" +
+        "Input: /users/12345\n" +
+        "Output: {\"template\": \"/users/{id}\", \"validators\": {\"id\": \"NUMERIC\"}}\n" +
+        "\n" +
+        "Input: /api/orders/550e8400-e29b-41d4-a716-446655440000\n" +
+        "Output: {\"template\": \"/api/orders/{orderId}\", \"validators\": {\"orderId\": \"UUID\"}}\n" +
+        "\n" +
+        "Input: /api/companies/64e7a294e854ff2eb3550075/config\n" +
+        "Output: {\"template\": \"/api/companies/{companyId}/config\", \"validators\": {\"companyId\": \"MONGODB\"}}\n" +
+        "\n" +
+        "Input: /api/v1/rest/character/CHMA0000000001\n" +
+        "Output: {\"template\": \"/api/v1/rest/character/{id}\", \"validators\": {\"id\": \"ALPHANUMERIC_ID\"}}\n" +
+        "\n" +
+        "Input: /content/en/articles\n" +
+        "Output: {\"template\": \"/content/{lang}/articles\", \"validators\": {\"lang\": \"ISO_639_1\"}}\n" +
+        "\n" +
+        "Input: /flights/JFK/departures\n" +
+        "Output: {\"template\": \"/flights/{airport}/departures\", \"validators\": {\"airport\": \"IATA_AIRPORT\"}}\n" +
+        "\n" +
+        "Input: /pricing/USD/products\n" +
+        "Output: {\"template\": \"/pricing/{currency}/products\", \"validators\": {\"currency\": \"CURRENCY\"}}\n" +
+        "\n" +
+        "Input: /docs/getting-started\n" +
+        "Output: {\"template\": \"/docs/{slug}\", \"validators\": {\"slug\": \"ANY\"}}\n" +
+        "\n" +
+        "Input: /api/animal/search\n" +
+        "Output: {\"template\": \"/api/animal/search\", \"validators\": {}}\n" +
+        "\n" +
+        "Input: /users/john_doe/settings\n" +
+        "Output: {\"template\": \"/users/{username}/settings\", \"validators\": {\"username\": \"ANY\"}}\n" +
+        "\n" +
+        "Input: /api/reports/2024/january/summary\n" +
+        "Output: {\"template\": \"/api/reports/{year}/{month}/summary\", \"validators\": {\"year\": \"NUMERIC\", \"month\": \"MONTH_NAME\"}}\n" +
+        "\n" +
+        "Input: /api/channels/C1234567890/messages/1765701919.171019\n" +
+        "Output: {\"template\": \"/api/channels/{channelId}/messages/{messageId}\", \"validators\": {\"channelId\": \"ALPHANUMERIC_ID\", \"messageId\": \"TIMESTAMP\"}}\n" +
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════════════\n" +
+        "SELF-VERIFICATION CHECKLIST (before outputting):\n" +
+        "\n" +
+        "□ Does every {parameter} in the template have a corresponding validator?\n" +
+        "□ Are literal segments truly invariant across all API calls?\n" +
+        "□ Did I choose the MOST SPECIFIC validator possible (not defaulting to ANY/NUMERIC)?\n" +
+        "□ Would this template match ALL variations of this endpoint pattern?\n" +
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════════════\n" +
+        "OUTPUT FORMAT:\n" +
+        "\n" +
+        "Return ONLY valid JSON in this exact format:\n" +
+        "{\"template\": \"/path/{param}\", \"validators\": {\"param\": \"VALIDATOR_TYPE\"}}\n" +
+        "\n" +
         "Rules:\n" +
-        "1. Replace dynamic segments with {paramName} placeholders\n" +
-        "2. Use semantic parameter names (e.g., {id}, {name}, {userId}, {companyId}, {lang}, {country}, {currency}, {state}, {day}, {month})\n" +
-        "3. Identify segment types:\n" +
-        "   - NUMERIC: digits only (e.g., 123, 456)\n" +
-        "   - UUID: standard format (e.g., 550e8400-e29b-41d4-a716-446655440000)\n" +
-        "   - MONGODB: 24 hex characters (e.g., 64e7a294e854ff2eb3550075)\n" +
-        "   - IATA_AIRPORT: 3-letter airport code (e.g., JFK, LAX, LHR, CDG)\n" +
-        "   - ICAO_AIRPORT: 4-letter airport code (e.g., KJFK, EGLL, LFPG)\n" +
-        "   - ISO_639_1: 2-letter language code (e.g., en, es, fr, de, zh)\n" +
-        "   - ISO_639_2: 3-letter language code (e.g., eng, spa, fra, deu)\n" +
-        "   - COUNTRY_ALPHA2: 2-letter country code (e.g., US, GB, FR, DE)\n" +
-        "   - COUNTRY_ALPHA3: 3-letter country code (e.g., USA, GBR, FRA)\n" +
-        "   - CURRENCY: 3-letter currency code (e.g., USD, EUR, GBP, JPY)\n" +
-        "   - HTTP_STATUS: 3-digit HTTP status code (e.g., 200, 404, 500)\n" +
-        "   - US_STATE: 2-letter US state code (e.g., CA, NY, TX, DC, PR)\n" +
-        "   - DAY_OF_WEEK: day name or abbreviation (e.g., monday, mon, friday, fri)\n" +
-        "   - MONTH_NAME: month name or abbreviation (e.g., january, jan, december, dec)\n" +
-        "   - ANY: any other non-empty string\n" +
-        "4. Return ONLY valid JSON, no explanatory text\n" +
-        "5. Keep literal segments as-is (e.g., /api, /users, /posts)\n" +
-        "6. Prefer specific validators over generic ones when pattern is clear\n" +
-        "Format: {\"template\": \"/path/{param}\", \"validators\": {\"param\": \"type\"}}\n" +
-        "Examples:\n" +
-        "- /users/123 -> {\"template\": \"/users/{id}\", \"validators\": {\"id\": \"NUMERIC\"}}\n" +
-        "- /content/en/articles -> {\"template\": \"/content/{lang}/articles\", \"validators\": {\"lang\": \"ISO_639_1\"}}\n" +
-        "- /flights/JFK/departures -> {\"template\": \"/flights/{airport}/departures\", \"validators\": {\"airport\": \"IATA_AIRPORT\"}}\n" +
-        "- /api/v2/countries/US/users -> {\"template\": \"/api/v2/countries/{country}/users\", \"validators\": {\"country\": \"COUNTRY_ALPHA2\"}}\n" +
-        "- /prices/USD/products -> {\"template\": \"/prices/{currency}/products\", \"validators\": {\"currency\": \"CURRENCY\"}}\n" +
-        "- /status/404/info -> {\"template\": \"/status/{code}/info\", \"validators\": {\"code\": \"HTTP_STATUS\"}}\n" +
-        "- /api/orders/550e8400-e29b-41d4-a716-446655440000 -> {\"template\": \"/api/orders/{id}\", \"validators\": {\"id\": \"UUID\"}}\n" +
-        "- /api/companies/64e7a294e854ff2eb3550075/config -> {\"template\": \"/api/companies/{companyId}/config\", \"validators\": {\"companyId\": \"MONGODB\"}}\n" +
-        "- /api/pricing/CA/rates -> {\"template\": \"/api/pricing/{state}/rates\", \"validators\": {\"state\": \"US_STATE\"}}\n" +
-        "- /api/availability/monday/slots -> {\"template\": \"/api/availability/{day}/slots\", \"validators\": {\"day\": \"DAY_OF_WEEK\"}}\n" +
-        "- /api/reports/2024/january/summary -> {\"template\": \"/api/reports/{year}/{month}/summary\", \"validators\": {\"year\": \"NUMERIC\", \"month\": \"MONTH_NAME\"}}";
+        "- Use semantic parameter names: {id}, {userId}, {slug}, {lang}, {country}, etc.\n" +
+        "- validators object maps parameter names to validator types\n" +
+        "- If no parameters, use empty validators: {\"template\": \"/literal/path\", \"validators\": {}}\n" +
+        "- NO explanatory text, NO markdown, ONLY the JSON object\n";
 
     /**
      * Creates a Bedrock inference service with default configuration.
@@ -239,6 +371,8 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
             // Pattern-based validators
             case "NUMERIC" -> SegmentValidator.NUMERIC;
             case "UUID" -> SegmentValidator.UUID;
+            case "ALPHANUMERIC_ID", "ALPHANUMERIC", "ALPHA_NUMERIC_ID" -> SegmentValidator.ALPHANUMERIC_ID;
+            case "TIMESTAMP", "UNIX_TIMESTAMP", "SLACK_TIMESTAMP" -> SegmentValidator.TIMESTAMP;
             case "OBJECTID", "MONGODB", "OBJECT" -> MONGODB_ID;
 
             // Airport codes

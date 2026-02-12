@@ -44,7 +44,24 @@ public interface SegmentValidator extends Predicate<String> {
         "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
     );
 
+    /**
+     * Pre-compiled pattern for alphanumeric ID validation.
+     * Matches IDs with letter prefix, optional underscore separator, and hex digits.
+     * Examples: "CHMA0000000001", "cus_123456789", "ch_987654321", "sub_123456789"
+     */
+    Pattern ALPHANUMERIC_ID_PATTERN = Pattern.compile(
+        "^[A-Za-z]+[_]?[0-9a-fA-F]+$"
+    );
 
+    /**
+     * Pre-compiled pattern for timestamp validation.
+     * Matches Unix timestamps with microsecond precision (Slack message IDs).
+     * Format: 10 digits (seconds since epoch) + dot + 6 digits (microseconds)
+     * Example: "1765701919.171019"
+     */
+    Pattern TIMESTAMP_PATTERN = Pattern.compile(
+        "^\\d{10}\\.\\d{6}$"
+    );
 
 
     /**
@@ -86,6 +103,45 @@ public interface SegmentValidator extends Predicate<String> {
      */
     SegmentValidator UUID = segment ->
         segment != null && !segment.isEmpty() && UUID_PATTERN.matcher(segment).matches();
+
+    /**
+     * Matches alphanumeric IDs with letter prefix and optional underscore.
+     * Uses pre-compiled ALPHANUMERIC_ID_PATTERN for optimal performance.
+     *
+     * Format: letter prefix (upper/lowercase) + optional underscore + hex digits
+     *
+     * Examples:
+     *   "CHMA0000000001"        → true  (legacy format without underscore)
+     *   "cus_123456789"         → true  (Stripe customer ID)
+     *   "ch_987654321"          → true  (Stripe charge ID)
+     *   "sub_123456789"         → true  (Stripe subscription ID)
+     *   "C_12345abcdef"         → true  (Slack channel ID)
+     *   "12345678"              → false (no letter prefix)
+     *   "abc_"                  → false (no digits after underscore)
+     *
+     * Performance: ~50 nanoseconds per call
+     */
+    SegmentValidator ALPHANUMERIC_ID = segment ->
+        segment != null && !segment.isEmpty() && ALPHANUMERIC_ID_PATTERN.matcher(segment).matches();
+
+    /**
+     * Matches Unix timestamps with microsecond precision.
+     * Uses pre-compiled TIMESTAMP_PATTERN for optimal performance.
+     *
+     * Format: Unix timestamp (10 digits) + dot + microseconds (6 digits)
+     * Commonly used in Slack message IDs and other timestamp-based identifiers.
+     *
+     * Examples:
+     *   "1765701919.171019" → true  (Slack message ID - Jan 2026)
+     *   "1234567890.123456" → true  (valid timestamp format - Feb 2009)
+     *   "1765701919"        → false (missing microseconds)
+     *   "123.456"           → false (wrong digit counts)
+     *   "abc.def"           → false (not numeric)
+     *
+     * Performance: ~50 nanoseconds per call
+     */
+    SegmentValidator TIMESTAMP = segment ->
+        segment != null && !segment.isEmpty() && TIMESTAMP_PATTERN.matcher(segment).matches();
 
     /**
      * Creates a validator that matches segments against a predefined set of values.
