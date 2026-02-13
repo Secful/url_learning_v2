@@ -556,3 +556,404 @@ Performance: Each wildcard validator is tried in order until one matches. Impact
 **In-memory only** — The trie persists only in memory. On application restart, the trie must be rebuilt from stored templates. The `listTemplates()` method enables persistence: serialize all templates to storage and re-insert on startup.
 
 **No conflict detection** — Inserting overlapping templates (e.g., `/users/{name}` and `/users/{id}` both with ANY validator) creates ambiguous paths. The trie accepts both without warning. The first matching validator during lookup determines which template is used.
+
+---
+
+## 10. Trie Health Monitoring & Fixing Loop
+
+### 10.1 The Problem: LLM Inference Drift
+
+The trie acts as a cache for LLM-inferred templates. However, because each LLM invocation starts with an **empty context** (no visibility into existing templates), the LLM can produce inconsistent results over time:
+
+**Scenario**: Three sequential API requests arrive
+```
+Request 1: /users/john/profile   (trie empty)
+  → LLM infers: /users/john/profile (treats "john" as literal)
+  → Trie now contains: /users/john/profile
+
+Request 2: /users/mary/profile   (trie has john's path)
+  → LLM infers: /users/mary/profile (treats "mary" as literal)
+  → Trie now contains: /users/john/profile, /users/mary/profile
+
+Request 3: /users/alice/profile  (trie has john, mary)
+  → LLM infers: /users/alice/profile (treats "alice" as literal)
+  → Trie now contains 3 separate templates for the same pattern!
+```
+
+**Problem**: The trie accumulates redundant, fragmented templates. What should be one template `/users/{name}/profile` becomes dozens or hundreds of literals: `/users/john/...`, `/users/mary/...`, etc.
+
+**Impact**:
+- Unbounded trie growth (one template per unique username)
+- LLM invoked repeatedly for the same pattern (cache miss for every new user)
+- Inconsistent routing behavior
+- Memory waste
+
+### 10.2 Solution: Periodic Fixing Loop
+
+A background process periodically analyzes the trie, detects LLM inference issues, and **consolidates** or **corrects** problematic templates.
+
+```mermaid
+flowchart LR
+    A[API Traffic] --> B[PathResolver]
+    B --> C{Trie<br/>Cache Hit?}
+    C -- Hit --> D[Return Template]
+    C -- Miss --> E[LLM Inference]
+    E --> F[Insert Template]
+    F --> D
+
+    G[Fixing Loop<br/>Periodic] -.-> H[Analyze Trie]
+    H -.-> I{Issues<br/>Detected?}
+    I -- Yes --> J[Generate Fixes]
+    J -.-> K[Apply Fixes]
+    K -.-> C
+    I -- No --> L[Sleep]
+    L -.-> H
+
+    style E fill:#553c9a,stroke:#805ad5,color:#e2e8f0
+    style G fill:#c05621,stroke:#dd6b20,color:#e2e8f0
+    style K fill:#276749,stroke:#38a169,color:#e2e8f0
+```
+
+### 10.3 Detection Phase: Identifying Issues
+
+The fixing loop analyzes templates from `listTemplates()` to detect five categories of problems:
+
+#### Issue Type 1: Under-Parameterization (Template Fragmentation)
+
+**Detection Algorithm**: Structural Similarity Clustering
+
+```
+For each depth group (templates with same segment count):
+  1. Parse templates into segment arrays
+  2. Compare pairs: count positions where segments differ
+  3. Cluster templates differing at exactly ONE position
+  4. If cluster size ≥ threshold (e.g., 3):
+     → Flag as under-parameterization
+
+Confidence Heuristics:
+  - Check if differing segment values are API keywords → Lower confidence
+  - Check if parameterized version already exists → Raise to CRITICAL
+  - Analyze value diversity (john, mary, alice vs v1, v1, v1) → Higher if diverse
+```
+
+**Example Detection**:
+```
+Cluster found:
+  Pattern: [users, ?, profile]
+  Members: /users/john/profile, /users/mary/profile, /users/alice/profile (×47)
+
+Analysis:
+  - Position 1 varies: john, mary, alice, robert, sarah... (diverse)
+  - Not API keywords: ✗
+  - Parameterized version exists: /users/{name}/settings (CRITICAL - inconsistency!)
+
+Recommendation: Consolidate 47 templates → /users/{name}/profile
+```
+
+#### Issue Type 2: Inconsistent Parameter Naming
+
+**Detection Algorithm**: Position-Based Name Analysis
+
+```
+For templates with similar structure:
+  1. Group by literal prefix pattern
+  2. Extract parameter names at each position
+  3. If same position has multiple names (userId vs user_id vs id):
+     → Flag as naming inconsistency
+
+Confidence:
+  - If all same validator type → Higher confidence (likely same concept)
+  - If different validators → Lower confidence (might be different things)
+```
+
+**Example**:
+```
+Templates with prefix /api/v1/users:
+  Position 3 parameter names:
+    - userId (15 templates)
+    - user_id (8 templates)
+    - id (3 templates)
+
+Recommendation: Standardize on most common name: userId
+```
+
+#### Issue Type 3: Over-Parameterization
+
+**Detection Algorithm**: Value Frequency Analysis (requires runtime data)
+
+```
+For each parameterized segment:
+  1. Track actual values captured during lookups
+  2. Calculate unique value count and distribution
+  3. If unique values ≤ threshold (e.g., 2) over many requests:
+     → Flag as over-parameterization
+
+Example:
+  Template: /api/{version}/users
+  Values seen: v1, v1, v1, v1, v1 (1000×), v2 (2×)
+  → Only 2 unique values across 1002 requests
+
+Recommendation: Consider literal /api/v1/users and /api/v2/users
+```
+
+**Challenge**: Requires **runtime instrumentation** to track parameter values.
+
+#### Issue Type 4: Wrong Validator
+
+**Detection Algorithm**: Format Pattern Analysis (requires runtime data)
+
+```
+For parameters using ANY validator:
+  1. Collect sample of actual values matched
+  2. Analyze format patterns (UUID format? 24 hex chars? Numeric?)
+  3. If 95%+ match a specific validator pattern:
+     → Recommend switching to that validator
+
+Example:
+  Parameter: {companyId} with ANY validator
+  Values: 64e7a294e854ff2eb3550075, 645d4369eb31790784df4dc0, ...
+  Analysis: 100% are 24-char hex (MongoDB ObjectID format)
+
+Recommendation: Change validator to MONGODB_ID
+```
+
+#### Issue Type 5: API Version Pattern Issues
+
+**Detection Algorithm**: Regex-Based Scan
+
+```
+For each template:
+  1. Scan for parameterized version segments: {v1}, {v2}, {version}
+  2. Check position: if NOT last segment → flag
+  3. Recommend: Make literal (v1, v2) or keep as {version} if last
+
+Example:
+  ❌ /api/{version}/users  → Should be /api/v1/users (literal)
+  ✓  /api/{version}        → OK (last segment, truly dynamic)
+```
+
+### 10.4 Fixing Phase: Strategies for Correction
+
+Once issues are detected, the fixing loop must decide **how to fix** them. Multiple strategies exist, each with trade-offs.
+
+#### Strategy 1: Template Consolidation (For Under-Parameterization)
+
+**Algorithm**: Remove + Re-insert
+```
+Given cluster: [/users/john/profile, /users/mary/profile, /users/alice/profile]
+
+Step 1: Generate consolidated template
+  Pattern: /users/{name}/profile
+  Validator: Infer from values (if all look like strings → ANY)
+
+Step 2: Remove old templates from trie
+  trie.remove("/users/john/profile")
+  trie.remove("/users/mary/profile")
+  trie.remove("/users/alice/profile")
+
+Step 3: Insert consolidated template
+  trie.insert("/users/{name}/profile", Map.of("name", ANY))
+
+Result: 47 templates → 1 template
+```
+
+**Validation**:
+```
+Test that old paths still resolve:
+  lookup("/users/john/profile") → Should match /users/{name}/profile ✓
+  lookup("/users/mary/profile") → Should match /users/{name}/profile ✓
+```
+
+**Risk**: If the differing segment was intentionally literal, consolidation breaks semantics.
+
+**Mitigation**: Use confidence thresholds. Only auto-fix HIGH confidence issues (e.g., 10+ cluster members). Flag MEDIUM confidence for human review.
+
+---
+
+#### Strategy 2: LLM Re-Inference (For Validation)
+
+**Algorithm**: Ask LLM to re-infer with context
+```
+Given problematic cluster, pick a sample path:
+  Sample: /users/john/profile
+
+Step 1: Re-invoke LLM with **enriched prompt**
+  Prompt: "Path: /users/john/profile
+           Context: Similar paths exist: /users/mary/profile, /users/alice/profile
+           Are john, mary, alice dynamic parameters or literal endpoints?"
+
+Step 2: Compare LLM result to existing templates
+  If LLM returns /users/{name}/profile → Confirms consolidation
+  If LLM returns /users/john/profile → Keep as-is (false positive)
+
+Step 3: Apply fix if LLM confirms issue
+```
+
+**Benefit**: Uses LLM's intelligence to validate fixes.
+
+**Cost**: Expensive (LLM call per issue). Use selectively for CRITICAL or MEDIUM confidence issues.
+
+---
+
+#### Strategy 3: Validator Upgrade (For Wrong Validator)
+
+**Algorithm**: Replace validator in-place
+```
+Given: /api/companies/{companyId} with ANY validator
+Analysis: All values are MongoDB ObjectIDs
+
+Step 1: Remove existing template
+  trie.remove("/api/companies/{companyId}")
+
+Step 2: Re-insert with correct validator
+  trie.insert("/api/companies/{companyId}",
+    Map.of("companyId", SegmentValidator.MONGODB_ID))
+
+Result: More precise validation, faster matching
+```
+
+**Validation**:
+```
+Test with sample values:
+  lookup("/api/companies/64e7a294e854ff2eb3550075") → Still matches ✓
+  lookup("/api/companies/not-a-real-id") → Now correctly rejects ✓
+```
+
+---
+
+#### Strategy 4: Parameter Renaming (For Inconsistent Naming)
+
+**Algorithm**: Standardize parameter names
+```
+Given inconsistency:
+  /api/v1/users/{userId}/posts
+  /api/v1/users/{user_id}/settings
+  /api/v1/users/{id}/profile
+
+Step 1: Choose canonical name (most common or follow convention)
+  Canonical: userId (appears 15 times vs 8 vs 3)
+
+Step 2: Re-insert templates with standardized name
+  Remove: /api/v1/users/{user_id}/settings
+  Insert: /api/v1/users/{userId}/settings
+
+Result: Consistent naming across API surface
+```
+
+**Impact**: Improves API documentation, parameter extraction consistency.
+
+**Risk**: LOW (parameter name doesn't affect routing, only captured params map).
+
+---
+
+### 10.5 Fixing Loop Architecture
+
+```mermaid
+flowchart TD
+    A[Scheduled Trigger<br/>Every N minutes or<br/>After M new templates] --> B[Acquire Read Lock<br/>listTemplates]
+    B --> C[Detection Phase<br/>Run all analyzers]
+    C --> D{Issues<br/>Found?}
+    D -- No --> E[Log: Trie Healthy<br/>Sleep until next cycle]
+    D -- Yes --> F[Generate Fix Proposals<br/>with confidence scores]
+    F --> G{Confidence<br/>Level?}
+    G -- HIGH --> H[Auto-Fix Queue]
+    G -- MEDIUM --> I[Human Review Queue]
+    G -- LOW --> J[Log Only<br/>No Action]
+    H --> K[Validation Phase<br/>Test fixes on sample paths]
+    K --> L{Validation<br/>Pass?}
+    L -- Yes --> M[Acquire Write Lock<br/>Apply fixes to trie]
+    L -- No --> N[Log: Fix Failed<br/>Move to review queue]
+    M --> O[Post-Fix Validation<br/>Ensure no regressions]
+    O --> P[Log: Fixes Applied<br/>Report metrics]
+    I --> Q[Notify Admins<br/>Dashboard or Alert]
+
+    style A fill:#c05621,stroke:#dd6b20,color:#e2e8f0
+    style M fill:#276749,stroke:#38a169,color:#e2e8f0
+    style N fill:#742a2a,stroke:#e53e3e,color:#e2e8f0
+    style Q fill:#744210,stroke:#d69e2e,color:#e2e8f0
+```
+
+### 10.6 Configuration & Tuning
+
+**Trigger Conditions**:
+- **Time-based**: Every N minutes (e.g., hourly during low traffic)
+- **Event-based**: After M new templates learned (e.g., every 100 templates)
+- **Manual**: Admin-triggered via API or CLI
+
+**Confidence Thresholds**:
+```
+HIGH confidence (auto-fix):
+  - Under-parameterization with 10+ cluster members
+  - Inconsistent naming with 20+ templates
+  - Wrong validator with 100+ confirmed samples
+
+MEDIUM confidence (human review):
+  - Under-parameterization with 3-9 cluster members
+  - Over-parameterization with suspicious patterns
+  - API version issues
+
+LOW confidence (log only):
+  - Cluster size = 2
+  - Ambiguous patterns
+```
+
+**Safety Mechanisms**:
+- **Dry-run mode**: Preview fixes without applying
+- **Rollback**: Store pre-fix trie snapshot, allow instant revert
+- **Rate limiting**: Max N fixes per cycle (avoid cascading changes)
+- **Validation gate**: Test fixes on sample paths before applying
+
+### 10.7 Metrics & Observability
+
+**Health Metrics**:
+```
+Trie Health Score (0-100):
+  - Template count: lower is better (indicates consolidation)
+  - Cluster count: 0 clusters = 100 score
+  - Naming consistency: % templates following naming convention
+  - Validator coverage: % parameters with specific validators (not ANY)
+
+Example:
+  Score: 87/100
+  - Total templates: 1,247 (good)
+  - Under-parameterization clusters: 3 (minor issue)
+  - Naming consistency: 94% (excellent)
+  - Validator coverage: 78% (good)
+```
+
+**Fixing Loop Metrics**:
+```
+Per-cycle metrics:
+  - Issues detected: 15
+  - Auto-fixed: 8
+  - Pending review: 5
+  - Failed validation: 2
+  - Templates consolidated: 47 → 5 (89% reduction)
+  - Trie size reduction: 1.2 MB → 312 KB
+```
+
+### 10.8 Advanced: Learning from Fixes
+
+**Feedback Loop to LLM Prompt**:
+
+The fixing loop can identify **systematic** LLM inference patterns and feed them back to improve the prompt.
+
+**Example**: If fixing loop consistently finds MongoDB ObjectIDs being validated as ANY:
+```
+Detection: 15 fixes applied this week, all upgrading ANY → MONGODB_ID
+
+Action: Update LLM system prompt:
+  Add rule: "If segment is 24 hex characters (e.g., 64e7a294e854ff2eb3550075),
+             use MONGODB_ID validator, not ANY"
+
+Result: Future LLM inferences use correct validator from the start
+```
+
+**Feedback Categories**:
+- Common parameter naming patterns → Add to style guide in prompt
+- Frequently consolidated patterns → Add examples to prompt
+- API version handling → Refine version detection rules
+
+**Meta-Optimization**: The system learns and improves its own prompts over time based on real-world fixing patterns.
+
+---

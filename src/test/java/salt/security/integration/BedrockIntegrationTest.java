@@ -191,4 +191,54 @@ class BedrockIntegrationTest {
         assertEquals(result1.getTemplate(), result2.getTemplate(),
             "Both paths should resolve to the same template");
     }
+
+    @Test
+    @DisplayName("Should invoke LLM to infer template for flight deals SEO path")
+    void testLLMInferenceForFlightDealsPath() {
+        logger.info("TEST: LLM inference for flight deals SEO-friendly path");
+
+        // SEO-friendly flight booking path with country, language, description, airport codes, and travel class
+        String path = "/us/en/flight-deals/flights-from-honolulu-to-melbourne.html/hnl/mel/economy";
+
+        logger.info("Resolving path: " + path);
+        logger.info("Cache is empty - this WILL call Bedrock to infer template");
+
+        MatchResult result = resolver.resolve(path);
+
+        assertNotNull(result, "LLM should have inferred a template for flight deals path");
+        logger.info("LLM inferred template: " + result.getTemplate());
+        logger.info("Captured params: " + result.getParams());
+
+        // Verify the template structure
+        assertTrue(result.getTemplate().contains("{"),
+            "Template should contain parameter placeholders");
+
+        // Test that similar flight paths hit the cache
+        logger.info("\n=== Testing cache hit with similar flight path ===");
+        String similarPath = "/us/en/flight-deals/flights-from-new-york-to-london.html/jfk/lhr/business";
+        logger.info("Resolving similar path: " + similarPath);
+        logger.info("This should HIT cache (no LLM call) if template generalizes well");
+
+        MatchResult cachedResult = resolver.resolve(similarPath);
+        assertNotNull(cachedResult, "Similar path should resolve using cached template");
+        logger.info("Result: " + cachedResult.getTemplate());
+        logger.info("Params: " + cachedResult.getParams());
+
+        // Test with different country/language
+        logger.info("\n=== Testing with different country/language ===");
+        String intlPath = "/gb/en/flight-deals/flights-from-london-to-paris.html/lhr/cdg/first";
+        logger.info("Resolving: " + intlPath);
+
+        MatchResult intlResult = resolver.resolve(intlPath);
+        assertNotNull(intlResult, "International path should resolve");
+        logger.info("Result: " + intlResult.getTemplate());
+        logger.info("Params: " + intlResult.getParams());
+
+        // Show final cache state
+        logger.info("\n=== Final cache state ===");
+        logger.info("Templates in cache:");
+        for (String template : trie.listTemplates()) {
+            logger.info("  " + template);
+        }
+    }
 }

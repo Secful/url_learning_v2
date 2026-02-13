@@ -59,9 +59,10 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         "\n" +
         "A segment is LITERAL if it matches ANY of these:\n" +
         "1. REST operations: search, list, all, create, update, delete, get, post, put, patch, find\n" +
-        "2. API structure: api, rest, graphql, v1, v2, v3, v4\n" +
-        "3. Resource collections (typically plurals): users, items, orders, products, posts, comments\n" +
-        "4. Action endpoints: info, details, settings, config, status, health, version, ping, metrics\n" +
+        "2. API structure: api, rest, graphql, apis\n" +
+        "3. API versions ONLY when NOT last: v1, v2, v3, v4 (if last segment → use {version})\n" +
+        "4. Resource collections (typically plurals): users, items, orders, products, posts, comments\n" +
+        "5. Action endpoints: info, details, settings, config, status, health, version, ping, metrics\n" +
         "\n" +
         "A segment is DYNAMIC if it matches ANY of these:\n" +
         "1. Has a recognizable ID format:\n" +

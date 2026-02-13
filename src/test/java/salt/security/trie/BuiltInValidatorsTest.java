@@ -304,6 +304,82 @@ class BuiltInValidatorsTest {
         assertNull(trie.lookup("/content/en/XX/news"));
     }
 
+    @Test
+    @DisplayName("Should validate SEO-friendly flight booking paths with multiple validators")
+    void testFlightDealsPath() {
+        // Create validator for travel classes
+        SegmentValidator travelClass = SegmentValidator.setOf(
+            "economy", "business", "first", "premium-economy"
+        );
+
+        // Template for SEO-friendly flight paths like:
+        // /us/en/flight-deals/flights-from-honolulu-to-melbourne.html/hnl/mel/economy
+        trie.insert("/{country}/{lang}/flight-deals/{description}/{origin}/{destination}/{class}",
+            Map.of(
+                "country", SegmentValidator.ISO_3166_COUNTRY_ALPHA2,
+                "lang", SegmentValidator.ISO_639_1_LANGUAGE,
+                "description", SegmentValidator.ANY,  // SEO-friendly descriptive segment
+                "origin", SegmentValidator.IATA_AIRPORT,
+                "destination", SegmentValidator.IATA_AIRPORT,
+                "class", travelClass
+            ));
+
+        // Test the specific path requested: Honolulu to Melbourne
+        MatchResult result = trie.lookup("/us/en/flight-deals/flights-from-honolulu-to-melbourne.html/hnl/mel/economy");
+        assertNotNull(result, "Should match Honolulu to Melbourne flight");
+        assertEquals("us", result.getParams().get("country"));
+        assertEquals("en", result.getParams().get("lang"));
+        assertEquals("flights-from-honolulu-to-melbourne.html", result.getParams().get("description"));
+        assertEquals("hnl", result.getParams().get("origin"));
+        assertEquals("mel", result.getParams().get("destination"));
+        assertEquals("economy", result.getParams().get("class"));
+
+        // Test other valid flight routes
+        result = trie.lookup("/us/en/flight-deals/flights-from-new-york-to-london.html/jfk/lhr/business");
+        assertNotNull(result, "Should match JFK to LHR");
+        assertEquals("jfk", result.getParams().get("origin"));
+        assertEquals("lhr", result.getParams().get("destination"));
+        assertEquals("business", result.getParams().get("class"));
+
+        // Test with different country/language
+        result = trie.lookup("/gb/en/flight-deals/flights-from-london-to-paris.html/lhr/cdg/first");
+        assertNotNull(result, "Should match LHR to CDG");
+        assertEquals("gb", result.getParams().get("country"));
+        assertEquals("lhr", result.getParams().get("origin"));
+        assertEquals("cdg", result.getParams().get("destination"));
+        assertEquals("first", result.getParams().get("class"));
+
+        // Test with Spanish language
+        result = trie.lookup("/es/es/flight-deals/vuelos-de-madrid-a-barcelona.html/mad/bcn/premium-economy");
+        assertNotNull(result, "Should match Madrid to Barcelona");
+        assertEquals("es", result.getParams().get("country"));
+        assertEquals("es", result.getParams().get("lang"));
+        assertEquals("mad", result.getParams().get("origin"));
+        assertEquals("bcn", result.getParams().get("destination"));
+        assertEquals("premium-economy", result.getParams().get("class"));
+
+        // Test Asian routes
+        result = trie.lookup("/jp/ja/flight-deals/flights-from-tokyo-to-singapore.html/hnd/sin/economy");
+        assertNotNull(result, "Should match Tokyo to Singapore");
+        assertEquals("jp", result.getParams().get("country"));
+        assertEquals("ja", result.getParams().get("lang"));
+        assertEquals("hnd", result.getParams().get("origin"));
+        assertEquals("sin", result.getParams().get("destination"));
+
+        // Invalid tests
+        // Invalid country code
+        assertNull(trie.lookup("/xx/en/flight-deals/flights.html/jfk/lax/economy"));
+
+        // Invalid language code
+        assertNull(trie.lookup("/us/zz/flight-deals/flights.html/jfk/lax/economy"));
+
+        // Invalid airport codes
+        assertNull(trie.lookup("/us/en/flight-deals/flights.html/xyz/abc/economy"));
+
+        // Invalid travel class
+        assertNull(trie.lookup("/us/en/flight-deals/flights.html/jfk/lax/super-luxury"));
+    }
+
     // =========================================================================
     // Helper Methods
     // =========================================================================

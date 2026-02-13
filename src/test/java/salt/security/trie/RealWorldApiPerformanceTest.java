@@ -75,6 +75,8 @@ class RealWorldApiPerformanceTest {
         initializeSlackStyleApi();
         initializeTwilioStyleApi();
         initializeGitLabApi();
+        initializeKubernetesApi();
+        initializeDockerHubApi();
 
         logger.info("Initialized " + API_PATTERNS.size() + " API path patterns");
     }
@@ -701,6 +703,1163 @@ class RealWorldApiPerformanceTest {
         ));
     }
 
+    /**
+     * Kubernetes API (v1.35) - 100 diverse K8s REST API endpoints
+     * Covers Core API, Apps, Batch, Networking, RBAC, Storage, Autoscaling
+     */
+    private static void initializeKubernetesApi() {
+        // Core API - Pods
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods/nginx-7d8f4c9b5c-xk9m2",
+            "/api/v1/namespaces/production/pods/redis-master-0",
+            "/api/v1/namespaces/kube-system/pods/coredns-565d847f94-lmwkz"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods/{name}/log",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods/nginx-7d8f4c9b5c-xk9m2/log",
+            "/api/v1/namespaces/production/pods/api-server-89f7c6d-w5r2m/log"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods/{name}/status",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods/nginx-7d8f4c9b5c-xk9m2/status",
+            "/api/v1/namespaces/staging/pods/postgres-0/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods/{name}/exec",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods/nginx-7d8f4c9b5c-xk9m2/exec",
+            "/api/v1/namespaces/production/pods/debug-pod/exec"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods/{name}/attach",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods/nginx-7d8f4c9b5c-xk9m2/attach"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods/{name}/portforward",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods/nginx-7d8f4c9b5c-xk9m2/portforward"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/pods",
+            "Kubernetes",
+            "/api/v1/namespaces/default/pods",
+            "/api/v1/namespaces/production/pods",
+            "/api/v1/namespaces/kube-system/pods"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/pods",
+            "Kubernetes",
+            "/api/v1/pods"
+        ));
+
+        // Core API - Services
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/services/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/services/kubernetes",
+            "/api/v1/namespaces/production/services/frontend-service",
+            "/api/v1/namespaces/staging/services/db-service"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/services/{name}/status",
+            "Kubernetes",
+            "/api/v1/namespaces/default/services/kubernetes/status",
+            "/api/v1/namespaces/production/services/load-balancer/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/services",
+            "Kubernetes",
+            "/api/v1/namespaces/default/services",
+            "/api/v1/namespaces/production/services"
+        ));
+
+        // Core API - ConfigMaps
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/configmaps/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/configmaps/app-config",
+            "/api/v1/namespaces/production/configmaps/database-config",
+            "/api/v1/namespaces/kube-system/configmaps/coredns"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/configmaps",
+            "Kubernetes",
+            "/api/v1/namespaces/default/configmaps",
+            "/api/v1/namespaces/production/configmaps"
+        ));
+
+        // Core API - Secrets
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/secrets/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/secrets/db-password",
+            "/api/v1/namespaces/production/secrets/api-key",
+            "/api/v1/namespaces/kube-system/secrets/default-token-7x9km"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/secrets",
+            "Kubernetes",
+            "/api/v1/namespaces/default/secrets",
+            "/api/v1/namespaces/production/secrets"
+        ));
+
+        // Core API - PersistentVolumeClaims
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/persistentvolumeclaims/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/persistentvolumeclaims/postgres-pvc",
+            "/api/v1/namespaces/production/persistentvolumeclaims/data-volume"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/persistentvolumeclaims/{name}/status",
+            "Kubernetes",
+            "/api/v1/namespaces/default/persistentvolumeclaims/postgres-pvc/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/persistentvolumeclaims",
+            "Kubernetes",
+            "/api/v1/namespaces/default/persistentvolumeclaims",
+            "/api/v1/namespaces/production/persistentvolumeclaims"
+        ));
+
+        // Core API - PersistentVolumes
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/persistentvolumes/{name}",
+            "Kubernetes",
+            "/api/v1/persistentvolumes/pv-nfs-001",
+            "/api/v1/persistentvolumes/pv-local-ssd"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/persistentvolumes/{name}/status",
+            "Kubernetes",
+            "/api/v1/persistentvolumes/pv-nfs-001/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/persistentvolumes",
+            "Kubernetes",
+            "/api/v1/persistentvolumes"
+        ));
+
+        // Core API - ServiceAccounts
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/serviceaccounts/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/serviceaccounts/default",
+            "/api/v1/namespaces/kube-system/serviceaccounts/kube-proxy",
+            "/api/v1/namespaces/production/serviceaccounts/app-sa"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/serviceaccounts",
+            "Kubernetes",
+            "/api/v1/namespaces/default/serviceaccounts",
+            "/api/v1/namespaces/production/serviceaccounts"
+        ));
+
+        // Core API - Nodes
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/nodes/{name}",
+            "Kubernetes",
+            "/api/v1/nodes/master-node-01",
+            "/api/v1/nodes/worker-node-02",
+            "/api/v1/nodes/node-1"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/nodes/{name}/status",
+            "Kubernetes",
+            "/api/v1/nodes/master-node-01/status",
+            "/api/v1/nodes/worker-node-02/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/nodes",
+            "Kubernetes",
+            "/api/v1/nodes"
+        ));
+
+        // Core API - Namespaces
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default",
+            "/api/v1/namespaces/production",
+            "/api/v1/namespaces/kube-system",
+            "/api/v1/namespaces/staging"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{name}/status",
+            "Kubernetes",
+            "/api/v1/namespaces/default/status",
+            "/api/v1/namespaces/production/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces",
+            "Kubernetes",
+            "/api/v1/namespaces"
+        ));
+
+        // Core API - Endpoints
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/endpoints/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/endpoints/kubernetes",
+            "/api/v1/namespaces/production/endpoints/frontend-service"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/endpoints",
+            "Kubernetes",
+            "/api/v1/namespaces/default/endpoints",
+            "/api/v1/namespaces/production/endpoints"
+        ));
+
+        // Core API - Events
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/events/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/events/nginx-deployment.17c4e6d8f5a2b3d4"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/events",
+            "Kubernetes",
+            "/api/v1/namespaces/default/events",
+            "/api/v1/namespaces/production/events"
+        ));
+
+        // Core API - ResourceQuotas
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/resourcequotas/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/production/resourcequotas/compute-quota"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/resourcequotas",
+            "Kubernetes",
+            "/api/v1/namespaces/production/resourcequotas"
+        ));
+
+        // Core API - LimitRanges
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/limitranges/{name}",
+            "Kubernetes",
+            "/api/v1/namespaces/default/limitranges/default-limits"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/v1/namespaces/{namespace}/limitranges",
+            "Kubernetes",
+            "/api/v1/namespaces/default/limitranges"
+        ));
+
+        // Apps API - Deployments
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/deployments/{name}",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/deployments/nginx-deployment",
+            "/apis/apps/v1/namespaces/production/deployments/frontend-deployment",
+            "/apis/apps/v1/namespaces/staging/deployments/backend-api"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/deployments/{name}/status",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/deployments/nginx-deployment/status",
+            "/apis/apps/v1/namespaces/production/deployments/frontend-deployment/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/deployments/{name}/scale",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/deployments/nginx-deployment/scale",
+            "/apis/apps/v1/namespaces/production/deployments/backend-api/scale"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/deployments",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/deployments",
+            "/apis/apps/v1/namespaces/production/deployments"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/deployments",
+            "Kubernetes",
+            "/apis/apps/v1/deployments"
+        ));
+
+        // Apps API - StatefulSets
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/statefulsets/{name}",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/statefulsets/postgres",
+            "/apis/apps/v1/namespaces/production/statefulsets/cassandra",
+            "/apis/apps/v1/namespaces/staging/statefulsets/redis-cluster"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/statefulsets/{name}/status",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/statefulsets/postgres/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/statefulsets/{name}/scale",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/statefulsets/postgres/scale"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/statefulsets",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/statefulsets",
+            "/apis/apps/v1/namespaces/production/statefulsets"
+        ));
+
+        // Apps API - DaemonSets
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/daemonsets/{name}",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/kube-system/daemonsets/kube-proxy",
+            "/apis/apps/v1/namespaces/default/daemonsets/fluentd",
+            "/apis/apps/v1/namespaces/monitoring/daemonsets/node-exporter"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/daemonsets/{name}/status",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/kube-system/daemonsets/kube-proxy/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/daemonsets",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/kube-system/daemonsets",
+            "/apis/apps/v1/namespaces/monitoring/daemonsets"
+        ));
+
+        // Apps API - ReplicaSets
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/replicasets/{name}",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/replicasets/nginx-deployment-7d8f4c9b5c",
+            "/apis/apps/v1/namespaces/production/replicasets/frontend-85c9f7b8d"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/replicasets/{name}/status",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/replicasets/nginx-deployment-7d8f4c9b5c/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/replicasets/{name}/scale",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/replicasets/nginx-deployment-7d8f4c9b5c/scale"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/apps/v1/namespaces/{namespace}/replicasets",
+            "Kubernetes",
+            "/apis/apps/v1/namespaces/default/replicasets",
+            "/apis/apps/v1/namespaces/production/replicasets"
+        ));
+
+        // Batch API - Jobs
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/batch/v1/namespaces/{namespace}/jobs/{name}",
+            "Kubernetes",
+            "/apis/batch/v1/namespaces/default/jobs/data-migration",
+            "/apis/batch/v1/namespaces/production/jobs/backup-job",
+            "/apis/batch/v1/namespaces/staging/jobs/db-restore"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/batch/v1/namespaces/{namespace}/jobs/{name}/status",
+            "Kubernetes",
+            "/apis/batch/v1/namespaces/default/jobs/data-migration/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/batch/v1/namespaces/{namespace}/jobs",
+            "Kubernetes",
+            "/apis/batch/v1/namespaces/default/jobs",
+            "/apis/batch/v1/namespaces/production/jobs"
+        ));
+
+        // Batch API - CronJobs
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/batch/v1/namespaces/{namespace}/cronjobs/{name}",
+            "Kubernetes",
+            "/apis/batch/v1/namespaces/default/cronjobs/nightly-backup",
+            "/apis/batch/v1/namespaces/production/cronjobs/daily-report",
+            "/apis/batch/v1/namespaces/staging/cronjobs/cleanup-job"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/batch/v1/namespaces/{namespace}/cronjobs/{name}/status",
+            "Kubernetes",
+            "/apis/batch/v1/namespaces/default/cronjobs/nightly-backup/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/batch/v1/namespaces/{namespace}/cronjobs",
+            "Kubernetes",
+            "/apis/batch/v1/namespaces/default/cronjobs",
+            "/apis/batch/v1/namespaces/production/cronjobs"
+        ));
+
+        // Networking API - Ingresses
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/networking.k8s.io/v1/namespaces/{namespace}/ingresses/{name}",
+            "Kubernetes",
+            "/apis/networking.k8s.io/v1/namespaces/default/ingresses/main-ingress",
+            "/apis/networking.k8s.io/v1/namespaces/production/ingresses/api-ingress"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/networking.k8s.io/v1/namespaces/{namespace}/ingresses/{name}/status",
+            "Kubernetes",
+            "/apis/networking.k8s.io/v1/namespaces/default/ingresses/main-ingress/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/networking.k8s.io/v1/namespaces/{namespace}/ingresses",
+            "Kubernetes",
+            "/apis/networking.k8s.io/v1/namespaces/default/ingresses",
+            "/apis/networking.k8s.io/v1/namespaces/production/ingresses"
+        ));
+
+        // Networking API - NetworkPolicies
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/networking.k8s.io/v1/namespaces/{namespace}/networkpolicies/{name}",
+            "Kubernetes",
+            "/apis/networking.k8s.io/v1/namespaces/default/networkpolicies/deny-all",
+            "/apis/networking.k8s.io/v1/namespaces/production/networkpolicies/allow-frontend"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/networking.k8s.io/v1/namespaces/{namespace}/networkpolicies",
+            "Kubernetes",
+            "/apis/networking.k8s.io/v1/namespaces/default/networkpolicies",
+            "/apis/networking.k8s.io/v1/namespaces/production/networkpolicies"
+        ));
+
+        // RBAC API - Roles
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/roles/{name}",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/default/roles/pod-reader",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/production/roles/deploy-manager"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/roles",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/default/roles",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/production/roles"
+        ));
+
+        // RBAC API - RoleBindings
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/rolebindings/{name}",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/default/rolebindings/read-pods",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/production/rolebindings/admin-binding"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/rolebindings",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/default/rolebindings",
+            "/apis/rbac.authorization.k8s.io/v1/namespaces/production/rolebindings"
+        ));
+
+        // RBAC API - ClusterRoles
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles/{name}",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles/cluster-admin",
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles/view",
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles/edit"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles"
+        ));
+
+        // RBAC API - ClusterRoleBindings
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/{name}",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin-binding",
+            "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/system:node"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings",
+            "Kubernetes",
+            "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings"
+        ));
+
+        // Storage API - StorageClasses
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/storage.k8s.io/v1/storageclasses/{name}",
+            "Kubernetes",
+            "/apis/storage.k8s.io/v1/storageclasses/standard",
+            "/apis/storage.k8s.io/v1/storageclasses/fast-ssd",
+            "/apis/storage.k8s.io/v1/storageclasses/slow"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/storage.k8s.io/v1/storageclasses",
+            "Kubernetes",
+            "/apis/storage.k8s.io/v1/storageclasses"
+        ));
+
+        // Storage API - VolumeAttachments
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/storage.k8s.io/v1/volumeattachments/{name}",
+            "Kubernetes",
+            "/apis/storage.k8s.io/v1/volumeattachments/csi-vol-123456"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/storage.k8s.io/v1/volumeattachments",
+            "Kubernetes",
+            "/apis/storage.k8s.io/v1/volumeattachments"
+        ));
+
+        // Autoscaling API - HorizontalPodAutoscalers (v2)
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/autoscaling/v2/namespaces/{namespace}/horizontalpodautoscalers/{name}",
+            "Kubernetes",
+            "/apis/autoscaling/v2/namespaces/default/horizontalpodautoscalers/php-apache",
+            "/apis/autoscaling/v2/namespaces/production/horizontalpodautoscalers/backend-hpa"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/autoscaling/v2/namespaces/{namespace}/horizontalpodautoscalers/{name}/status",
+            "Kubernetes",
+            "/apis/autoscaling/v2/namespaces/default/horizontalpodautoscalers/php-apache/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/autoscaling/v2/namespaces/{namespace}/horizontalpodautoscalers",
+            "Kubernetes",
+            "/apis/autoscaling/v2/namespaces/default/horizontalpodautoscalers",
+            "/apis/autoscaling/v2/namespaces/production/horizontalpodautoscalers"
+        ));
+
+        // Certificate API - CertificateSigningRequests
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/certificates.k8s.io/v1/certificatesigningrequests/{name}",
+            "Kubernetes",
+            "/apis/certificates.k8s.io/v1/certificatesigningrequests/user-123-csr"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/certificates.k8s.io/v1/certificatesigningrequests/{name}/approval",
+            "Kubernetes",
+            "/apis/certificates.k8s.io/v1/certificatesigningrequests/user-123-csr/approval"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/certificates.k8s.io/v1/certificatesigningrequests",
+            "Kubernetes",
+            "/apis/certificates.k8s.io/v1/certificatesigningrequests"
+        ));
+
+        // Policy API - PodDisruptionBudgets
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/policy/v1/namespaces/{namespace}/poddisruptionbudgets/{name}",
+            "Kubernetes",
+            "/apis/policy/v1/namespaces/default/poddisruptionbudgets/zookeeper-pdb",
+            "/apis/policy/v1/namespaces/production/poddisruptionbudgets/frontend-pdb"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/policy/v1/namespaces/{namespace}/poddisruptionbudgets/{name}/status",
+            "Kubernetes",
+            "/apis/policy/v1/namespaces/default/poddisruptionbudgets/zookeeper-pdb/status"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/policy/v1/namespaces/{namespace}/poddisruptionbudgets",
+            "Kubernetes",
+            "/apis/policy/v1/namespaces/default/poddisruptionbudgets",
+            "/apis/policy/v1/namespaces/production/poddisruptionbudgets"
+        ));
+
+        // API Discovery
+        API_PATTERNS.add(new ApiPathPattern(
+            "/apis/{group}/{version}",
+            "Kubernetes",
+            "/apis/apps/v1",
+            "/apis/batch/v1",
+            "/apis/networking.k8s.io/v1"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/api/{version}",
+            "Kubernetes",
+            "/api/v1"
+        ));
+    }
+
+    /**
+     * Docker Hub API (v2) - 100 diverse Docker Hub REST API endpoints
+     * Covers repositories, images, tags, users, organizations, webhooks, access tokens, audit logs
+     */
+    private static void initializeDockerHubApi() {
+        // Docker Hub API v2 - Repositories
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}",
+            "DockerHub",
+            "/v2/repositories/library/nginx",
+            "/v2/repositories/library/ubuntu",
+            "/v2/repositories/library/redis",
+            "/v2/repositories/docker/getting-started"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags",
+            "/v2/repositories/library/ubuntu/tags",
+            "/v2/repositories/library/redis/tags"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags/{tag}",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags/latest",
+            "/v2/repositories/library/ubuntu/tags/22.04",
+            "/v2/repositories/library/redis/tags/7.0-alpine",
+            "/v2/repositories/library/postgres/tags/15.2"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags/{tag}/images",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags/latest/images",
+            "/v2/repositories/library/ubuntu/tags/22.04/images"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/dockerfile",
+            "DockerHub",
+            "/v2/repositories/library/nginx/dockerfile",
+            "/v2/repositories/library/ubuntu/dockerfile"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/buildhistory",
+            "DockerHub",
+            "/v2/repositories/library/nginx/buildhistory",
+            "/v2/repositories/docker/getting-started/buildhistory"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/autobuild",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/autobuild",
+            "/v2/repositories/company/backend/autobuild"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/autobuild/tags",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/autobuild/tags"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/autobuild/tags/{tag}",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/autobuild/tags/latest"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/autobuild/trigger-url",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/autobuild/trigger-url"
+        ));
+
+        // Webhooks
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/webhooks",
+            "DockerHub",
+            "/v2/repositories/library/nginx/webhooks",
+            "/v2/repositories/myorg/myapp/webhooks"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/webhooks/{webhook_id}",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/webhooks/550e8400-e29b-41d4-a716-446655440000",
+            "/v2/repositories/company/backend/webhooks/6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/webhooks/{webhook_id}/history",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/webhooks/550e8400-e29b-41d4-a716-446655440000/history"
+        ));
+
+        // Collaborators
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/collaborators",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/collaborators",
+            "/v2/repositories/company/backend/collaborators"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/collaborators/{username}",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/collaborators/johndoe",
+            "/v2/repositories/company/backend/collaborators/janedoe"
+        ));
+
+        // Permissions
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/permissions",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/permissions",
+            "/v2/repositories/company/backend/permissions"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/permissions/{username}",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/permissions/johndoe"
+        ));
+
+        // Repository Groups
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/groups",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/groups"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/groups/{group_id}",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/groups/12345"
+        ));
+
+        // Comments
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/comments",
+            "DockerHub",
+            "/v2/repositories/library/nginx/comments",
+            "/v2/repositories/library/ubuntu/comments"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/comments/{comment_id}",
+            "DockerHub",
+            "/v2/repositories/library/nginx/comments/98765"
+        ));
+
+        // Stars
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/stars",
+            "DockerHub",
+            "/v2/repositories/library/nginx/stars",
+            "/v2/repositories/library/ubuntu/stars"
+        ));
+
+        // Users
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/{username}",
+            "DockerHub",
+            "/v2/users/johndoe",
+            "/v2/users/janedoe",
+            "/v2/users/docker"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/{username}/repositories",
+            "DockerHub",
+            "/v2/users/johndoe/repositories",
+            "/v2/users/janedoe/repositories"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/{username}/starred",
+            "DockerHub",
+            "/v2/users/johndoe/starred",
+            "/v2/users/janedoe/starred"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/login",
+            "DockerHub",
+            "/v2/users/login"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/{username}/tokens",
+            "DockerHub",
+            "/v2/users/johndoe/tokens"
+        ));
+
+        // Organizations
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}",
+            "DockerHub",
+            "/v2/orgs/docker",
+            "/v2/orgs/mycompany",
+            "/v2/orgs/acmecorp"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/repositories",
+            "DockerHub",
+            "/v2/orgs/docker/repositories",
+            "/v2/orgs/mycompany/repositories"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/members",
+            "DockerHub",
+            "/v2/orgs/docker/members",
+            "/v2/orgs/mycompany/members"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/members/{username}",
+            "DockerHub",
+            "/v2/orgs/mycompany/members/johndoe",
+            "/v2/orgs/acmecorp/members/janedoe"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/teams",
+            "DockerHub",
+            "/v2/orgs/docker/teams",
+            "/v2/orgs/mycompany/teams"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/teams/{team_id}",
+            "DockerHub",
+            "/v2/orgs/mycompany/teams/12345",
+            "/v2/orgs/acmecorp/teams/67890"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/teams/{team_id}/members",
+            "DockerHub",
+            "/v2/orgs/mycompany/teams/12345/members"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/teams/{team_id}/members/{username}",
+            "DockerHub",
+            "/v2/orgs/mycompany/teams/12345/members/johndoe"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/groups",
+            "DockerHub",
+            "/v2/orgs/docker/groups",
+            "/v2/orgs/mycompany/groups"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/groups/{group_id}",
+            "DockerHub",
+            "/v2/orgs/mycompany/groups/12345"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/groups/{group_id}/members",
+            "DockerHub",
+            "/v2/orgs/mycompany/groups/12345/members"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/settings",
+            "DockerHub",
+            "/v2/orgs/docker/settings",
+            "/v2/orgs/mycompany/settings"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/settings/registry-access",
+            "DockerHub",
+            "/v2/orgs/mycompany/settings/registry-access"
+        ));
+
+        // Namespaces
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/namespaces/{namespace}",
+            "DockerHub",
+            "/v2/namespaces/library",
+            "/v2/namespaces/docker",
+            "/v2/namespaces/myorg"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/namespaces/{namespace}/repositories",
+            "DockerHub",
+            "/v2/namespaces/library/repositories",
+            "/v2/namespaces/docker/repositories"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/namespaces/{namespace}/repositories/{repository}",
+            "DockerHub",
+            "/v2/namespaces/library/repositories/nginx",
+            "/v2/namespaces/docker/repositories/getting-started"
+        ));
+
+        // Access Tokens (Personal Access Tokens)
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/access-tokens",
+            "DockerHub",
+            "/v2/access-tokens"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/access-tokens/{token_uuid}",
+            "DockerHub",
+            "/v2/access-tokens/550e8400-e29b-41d4-a716-446655440000",
+            "/v2/access-tokens/6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        ));
+
+        // Audit Logs
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/auditlogs/{namespace}",
+            "DockerHub",
+            "/v2/auditlogs/myorg",
+            "/v2/auditlogs/acmecorp"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/auditlogs/{namespace}/actions",
+            "DockerHub",
+            "/v2/auditlogs/myorg/actions"
+        ));
+
+        // Rate Limiting
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/rate-limit",
+            "DockerHub",
+            "/v2/rate-limit"
+        ));
+
+        // Publisher
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/publishers/{publisher_id}",
+            "DockerHub",
+            "/v2/publishers/docker-inc",
+            "/v2/publishers/redhat"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/publishers/{publisher_id}/images",
+            "DockerHub",
+            "/v2/publishers/docker-inc/images"
+        ));
+
+        // Docker Registry API v2 - Manifests
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/{namespace}/{repository}/manifests/{reference}",
+            "DockerHub",
+            "/v2/library/nginx/manifests/latest",
+            "/v2/library/ubuntu/manifests/22.04",
+            "/v2/library/redis/manifests/sha256:abcdef1234567890"
+        ));
+
+        // Docker Registry API v2 - Blobs
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/{namespace}/{repository}/blobs/{digest}",
+            "DockerHub",
+            "/v2/library/nginx/blobs/sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            "/v2/library/ubuntu/blobs/sha256:fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/{namespace}/{repository}/blobs/uploads",
+            "DockerHub",
+            "/v2/myorg/myapp/blobs/uploads",
+            "/v2/company/backend/blobs/uploads"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/{namespace}/{repository}/blobs/uploads/{upload_uuid}",
+            "DockerHub",
+            "/v2/myorg/myapp/blobs/uploads/550e8400-e29b-41d4-a716-446655440000"
+        ));
+
+        // Docker Registry API v2 - Tags
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/{namespace}/{repository}/tags/list",
+            "DockerHub",
+            "/v2/library/nginx/tags/list",
+            "/v2/library/ubuntu/tags/list",
+            "/v2/library/redis/tags/list"
+        ));
+
+        // Docker Registry API v2 - Catalog
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/_catalog",
+            "DockerHub",
+            "/v2/_catalog"
+        ));
+
+        // Docker Registry API v2 - Referrers (OCI Distribution)
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/{namespace}/{repository}/referrers/{digest}",
+            "DockerHub",
+            "/v2/library/nginx/referrers/sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        ));
+
+        // Extensions - Vulnerability Scanning
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags/{tag}/scans",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags/latest/scans",
+            "/v2/repositories/myorg/myapp/tags/v1.0.0/scans"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags/{tag}/scans/{scan_id}",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags/latest/scans/12345"
+        ));
+
+        // Extensions - Usage Analytics
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/analytics",
+            "DockerHub",
+            "/v2/repositories/library/nginx/analytics",
+            "/v2/repositories/myorg/myapp/analytics"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/analytics/pulls",
+            "DockerHub",
+            "/v2/repositories/library/nginx/analytics/pulls"
+        ));
+
+        // Extensions - Content Trust (Notary)
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/signatures",
+            "DockerHub",
+            "/v2/repositories/library/nginx/signatures",
+            "/v2/repositories/myorg/myapp/signatures"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/signatures/{tag}",
+            "DockerHub",
+            "/v2/repositories/library/nginx/signatures/latest"
+        ));
+
+        // Extensions - Build Cache
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/buildcache",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/buildcache"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/buildcache/{cache_id}",
+            "DockerHub",
+            "/v2/repositories/myorg/myapp/buildcache/550e8400-e29b-41d4-a716-446655440000"
+        ));
+
+        // Extensions - Subscriptions & Billing
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/subscription",
+            "DockerHub",
+            "/v2/orgs/mycompany/subscription",
+            "/v2/orgs/acmecorp/subscription"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/billing",
+            "DockerHub",
+            "/v2/orgs/mycompany/billing"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/orgs/{orgname}/billing/history",
+            "DockerHub",
+            "/v2/orgs/mycompany/billing/history"
+        ));
+
+        // Extensions - Notifications
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/{username}/notifications",
+            "DockerHub",
+            "/v2/users/johndoe/notifications"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/users/{username}/notifications/{notification_id}",
+            "DockerHub",
+            "/v2/users/johndoe/notifications/98765"
+        ));
+
+        // Search
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/search/repositories",
+            "DockerHub",
+            "/v2/search/repositories"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/search/images",
+            "DockerHub",
+            "/v2/search/images"
+        ));
+
+        // Extensions - Image Layers
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags/{tag}/layers",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags/latest/layers",
+            "/v2/repositories/myorg/myapp/tags/v1.0.0/layers"
+        ));
+
+        API_PATTERNS.add(new ApiPathPattern(
+            "/v2/repositories/{namespace}/{repository}/tags/{tag}/layers/{layer_id}",
+            "DockerHub",
+            "/v2/repositories/library/nginx/tags/latest/layers/sha256:abcdef123456"
+        ));
+    }
+
     @Test
     @DisplayName("Full cycle: Empty trie → LLM learning → Warm cache performance (1M lookups)")
     void testFullCycleWithRealWorldApis() {
@@ -968,22 +2127,39 @@ class RealWorldApiPerformanceTest {
         logger.info("\n=== API Pattern Diversity Test ===\n");
 
         Map<String, Integer> apiCounts = new HashMap<>();
+        Map<String, Integer> apiExampleCounts = new HashMap<>();
+        int totalExamples = 0;
+        Set<String> uniquePaths = new HashSet<>();
 
         for (ApiPathPattern pattern : API_PATTERNS) {
             apiCounts.merge(pattern.apiName, 1, Integer::sum);
+            int exampleCount = pattern.examples.size();
+            apiExampleCounts.merge(pattern.apiName, exampleCount, Integer::sum);
+            totalExamples += exampleCount;
+            uniquePaths.addAll(pattern.examples);
         }
 
-        logger.info("API Distribution:");
+        logger.info("API Distribution (Patterns):");
         apiCounts.entrySet().stream()
             .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
             .forEach(entry ->
                 logger.info("  " + entry.getKey() + ": " + entry.getValue() + " patterns"));
 
-        logger.info("\nTotal API patterns: " + API_PATTERNS.size());
+        logger.info("\nAPI Distribution (Concrete Example Paths):");
+        apiExampleCounts.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+            .forEach(entry ->
+                logger.info("  " + entry.getKey() + ": " + entry.getValue() + " examples"));
+
+        logger.info("\nTotal API patterns (templates): " + API_PATTERNS.size());
+        logger.info("Total concrete example paths: " + totalExamples);
+        logger.info("Unique concrete paths: " + uniquePaths.size());
         logger.info("Unique APIs: " + apiCounts.size());
+        logger.info("Average examples per pattern: " + String.format("%.2f", (double) totalExamples / API_PATTERNS.size()));
 
         // Verify diversity
         assertTrue(apiCounts.size() >= 5, "Should have at least 5 different API types");
         assertTrue(API_PATTERNS.size() >= 50, "Should have at least 50 path patterns");
+        assertTrue(uniquePaths.size() >= 100, "Should have at least 100 unique concrete paths");
     }
 }
