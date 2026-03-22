@@ -957,3 +957,65 @@ Result: Future LLM inferences use correct validator from the start
 **Meta-Optimization**: The system learns and improves its own prompts over time based on real-world fixing patterns.
 
 ---
+
+## 11. HTTP Server
+
+An embedded Jetty 12 server exposes the `PathTemplateTrie` over HTTP, allowing external clients to interact with the trie via a REST API.
+
+### Prerequisites
+
+- **Java 21** or later
+- **Maven 3.8** or later
+
+### Starting the Server
+
+```bash
+# Default port 8080
+./run_server.sh
+
+# Custom port
+./run_server.sh 9090
+```
+
+Or run directly:
+```bash
+mvn package -DskipTests
+java -cp target/url_learning_v2-1.0-SNAPSHOT.jar salt.security.Main server 8080
+```
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/trie/lookup` | Lookup a concrete path |
+| `POST` | `/api/v1/trie/templates` | Insert a template |
+| `DELETE` | `/api/v1/trie/templates` | Remove a template |
+| `GET` | `/api/v1/trie/templates` | List all templates |
+
+### curl Examples
+
+```bash
+# Health check
+curl localhost:8080/health
+
+# Insert a template with validators
+curl -X POST localhost:8080/api/v1/trie/templates \
+  -H 'Content-Type: application/json' \
+  -d '{"template":"/users/{id}/posts/{postId}","validators":{"id":"NUMERIC","postId":"NUMERIC"}}'
+
+# Lookup a path
+curl -X POST localhost:8080/api/v1/trie/lookup \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"/users/42/posts/123"}'
+
+# List all templates
+curl localhost:8080/api/v1/trie/templates
+
+# Remove a template
+curl -X DELETE localhost:8080/api/v1/trie/templates \
+  -H 'Content-Type: application/json' \
+  -d '{"template":"/users/{id}/posts/{postId}"}'
+```
+
+See `openapi.yaml` for the full OpenAPI 3.0 specification.

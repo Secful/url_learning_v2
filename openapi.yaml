@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: Path Template Trie API
+  description: HTTP API for the Path Template Trie — lookup, insert, remove, and list URL templates.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:{port}
+    description: Local development server
+    variables:
+      port:
+        default: "8080"
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+
+  /api/v1/trie/lookup:
+    post:
+      summary: Lookup a concrete path in the trie
+      operationId: lookupPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  example: /users/jack/posts/123
+      responses:
+        "200":
+          description: Lookup result (match or no match)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      matched:
+                        type: boolean
+                        example: true
+                      template:
+                        type: string
+                        example: /users/{name}/posts/{id}
+                      params:
+                        type: object
+                        additionalProperties:
+                          type: string
+                        example:
+                          name: jack
+                          id: "123"
+                  - type: object
+                    properties:
+                      matched:
+                        type: boolean
+                        example: false
+        "400":
+          description: Missing required field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/trie/templates:
+    post:
+      summary: Insert a template into the trie
+      operationId: insertTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template]
+              properties:
+                template:
+                  type: string
+                  example: /users/{name}/posts/{id}
+                validators:
+                  type: object
+                  additionalProperties:
+                    $ref: "#/components/schemas/ValidatorType"
+                  example:
+                    id: NUMERIC
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: created
+                  template:
+                    type: string
+                    example: /users/{name}/posts/{id}
+        "400":
+          description: Missing required field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Remove a template from the trie
+      operationId: removeTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template]
+              properties:
+                template:
+                  type: string
+                  example: /users/{name}/posts/{id}
+      responses:
+        "200":
+          description: Template removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: removed
+                  template:
+                    type: string
+        "404":
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: not_found
+                  template:
+                    type: string
+        "400":
+          description: Missing required field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      summary: List all templates in the trie
+      operationId: listTemplates
+      responses:
+        "200":
+          description: List of all templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 3
+                  templates:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      - /users/{name}
+                      - /users/{name}/posts/{id}
+                      - /health
+
+components:
+  schemas:
+    ValidatorType:
+      type: string
+      enum:
+        - ANY
+        - NUMERIC
+        - UUID
+        - ALPHANUMERIC_ID
+        - TIMESTAMP
+        - OBJECTID
+        - IATA_AIRPORT
+        - ICAO_AIRPORT
+        - ISO_639_1_LANGUAGE
+        - ISO_639_2_LANGUAGE
+        - ISO_3166_COUNTRY_ALPHA2
+        - ISO_3166_COUNTRY_ALPHA3
+        - ISO_4217_CURRENCY
+        - HTTP_STATUS_CODE
+        - US_STATE_CODE
+        - DAY_OF_WEEK
+        - MONTH_NAME
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

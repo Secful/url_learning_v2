@@ -4,17 +4,38 @@ import salt.security.llm.BedrockTemplateInferenceService;
 import salt.security.trie.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Main {
     private static final Logger logger = Logger.getLogger(Main.class.getName());
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         if (args.length > 0 && "llm".equals(args[0])) {
             demoWithLLM();
+        } else if (args.length > 0 && "server".equals(args[0])) {
+            int port = args.length > 1 ? Integer.parseInt(args[1]) : 8080;
+            startServer(port);
         } else {
             demoTrieOnly();
         }
+    }
+
+    private static void startServer(int port) throws Exception {
+        logger.info("Starting HTTP server on port " + port);
+        PathTemplateTrie trie = new PathTemplateTrie();
+        TrieHttpServer server = new TrieHttpServer(trie, port);
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                server.stop();
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Error stopping server", e);
+            }
+        }));
+
+        server.start();
+        server.join();
     }
 
     /**
