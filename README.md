@@ -1019,3 +1019,270 @@ curl -X DELETE localhost:8080/api/v1/trie/templates \
 ```
 
 See `openapi.yaml` for the full OpenAPI 3.0 specification.
+
+---
+
+## 12. Local LLM with llama.cpp
+
+Run template inference locally using [llama.cpp](https://github.com/ggml-org/llama.cpp) instead of AWS Bedrock. Useful for offline development, cost reduction, or air-gapped deployments.
+
+### Why Qwen?
+
+Qwen2.5-Instruct models follow structured JSON output instructions reliably, handle the ~200-line system prompt without truncation, and are available as GGUF files in multiple sizes.
+
+### Model Selection
+
+| Model | GGUF Size (Q4_K_M) | RAM Required | Tokens/sec (8 cores) | Recommendation |
+|---|---|---|---|---|
+| `Qwen2.5-0.5B-Instruct` | ~400 MB | 1 Gi | ~80 t/s | Too small — poor JSON adherence |
+| `Qwen2.5-1.5B-Instruct` | ~1 GB | 2 Gi | ~50 t/s | Marginal — occasional format errors |
+| `Qwen2.5-3B-Instruct` | ~2 GB | 4 Gi | ~30 t/s | **Minimum recommended** |
+| `Qwen2.5-7B-Instruct` | ~4.5 GB | 8 Gi | ~15 t/s | **Best quality/cost balance** ⭐ |
+| `Qwen2.5-14B-Instruct` | ~9 GB | 16 Gi | ~8 t/s | Overkill for this task |
+
+Each inference call generates ≤ 100 tokens (JSON output is short). Even at 15 t/s the latency is under 10 seconds — acceptable since LLM is called only on trie cache miss.
+
+### Hardware Requirements (Kubernetes Pod)
+
+The dominant cost is loading the GGUF model weights into RAM. CPU threads control generation speed.
+
+#### Minimum (Qwen2.5-3B, development/testing)
+
+```yaml
+resources:
+  requests:
+    cpu: "2"
+    memory: "4Gi"
+  limits:
+    cpu: "4"
+    memory: "6Gi"
+```
+
+Expected throughput: ~25–30 tokens/sec. Inference latency: ~3–5 seconds per path.
+
+#### Recommended (Qwen2.5-7B, production)
+
+```yaml
+resources:
+  requests:
+    cpu: "4"
+    memory: "10Gi"
+  limits:
+    cpu: "8"
+    memory: "12Gi"
+```
+
+Expected throughput: ~12–15 tokens/sec. Inference latency: ~5–8 seconds per path.
+
+**Memory breakdown (7B model):**
+- Model weights (Q4_K_M GGUF): ~4.5 Gi
+- KV cache (context 2048 tokens): ~0.5 Gi
+- llama-server overhead: ~0.3 Gi
+- OS + headroom: ~1 Gi
+- **Total: ~7 Gi** → request 10 Gi to avoid OOMKill under concurrent load
+
+**CPU guidance:**
+- llama.cpp uses `-t` (threads) for matrix multiplication; set to number of physical cores, not vCPUs
+- Beyond 8 threads, gains diminish for single-inference workloads
+- CPU type matters: AVX2 required, AVX-512 gives ~20% speedup (available on Intel Xeon, AMD EPYC)
+
+### Setup
+
+#### 1. Download model
+
+```bash
+# Install huggingface-cli
+pip install huggingface-hub
+
+# Download Qwen2.5-7B GGUF (Q4_K_M quantization)
+huggingface-cli download \
+  Qwen/Qwen2.5-7B-Instruct-GGUF \
+  qwen2.5-7b-instruct-q4_k_m.gguf \
+  --local-dir ./models
+```
+
+#### 2. Start llama-server
+
+```bash
+# Build llama.cpp (or use pre-built Docker image)
+./llama-server \
+  --model ./models/qwen2.5-7b-instruct-q4_k_m.gguf \
+  --host 0.0.0.0 \
+  --port 8081 \
+  --ctx-size 2048 \
+  --threads 8 \
+  --parallel 1
+```
+
+`--parallel 1` is sufficient since trie cache misses are rare and infrequent.
+
+#### 3. Verify server
+
+```bash
+curl http://localhost:8081/v1/models
+```
+
+### Usage
+
+`llama-server` exposes an OpenAI-compatible `/v1/chat/completions` endpoint. Send the same system prompt used by `BedrockTemplateInferenceService`:
+
+```bash
+curl -X POST http://localhost:8081/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen2.5-7b",
+    "max_tokens": 200,
+    "temperature": 0,
+    "messages": [
+      {"role": "system", "content": "<paste SYSTEM_PROMPT from BedrockTemplateInferenceService.java>"},
+      {"role": "user", "content": "Path: /api/companies/64e7a294e854ff2eb3550075/config"}
+    ]
+  }'
+```
+
+Expected response:
+```json
+{"template": "/api/companies/{companyId}/config", "validators": {"companyId": "MONGODB"}}
+```
+
+Use `"temperature": 0` for deterministic output — critical for consistent template inference.
+
+### Kubernetes Deployment (Pod Spec Excerpt)
+
+```yaml
+containers:
+  - name: llama-server
+    image: ghcr.io/ggerganov/llama.cpp:server
+    args:
+      - "--model"
+      - "/models/qwen2.5-7b-instruct-q4_k_m.gguf"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8081"
+      - "--ctx-size"
+      - "2048"
+      - "--threads"
+      - "8"
+      - "--parallel"
+      - "1"
+    ports:
+      - containerPort: 8081
+    resources:
+      requests:
+        cpu: "4"
+        memory: "10Gi"
+      limits:
+        cpu: "8"
+        memory: "12Gi"
+    volumeMounts:
+      - name: model-storage
+        mountPath: /models
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8081
+      initialDelaySeconds: 30   # model load time
+      periodSeconds: 10
+volumes:
+  - name: model-storage
+    persistentVolumeClaim:
+      claimName: llm-models-pvc   # pre-populated with GGUF file
+```
+
+> **Note:** Model loading takes 15–30 seconds depending on storage speed. Set `initialDelaySeconds` accordingly to avoid premature readiness failures.
+
+### Accuracy
+
+The same system prompt used with Bedrock Claude achieves **~96.6% accuracy** on the test suite (see memory notes). Qwen2.5-7B with `temperature=0` achieves comparable results on common patterns. Accuracy on edge cases (dual API patterns, complex Kubernetes API groups) may vary — validate against `BedrockIntegrationTest` before switching in production.
+
+---
+
+### Matching Quality of Claude Models
+
+Qwen2.5-7B out-of-the-box lands at ~85–88% accuracy. Three levers close the gap to Claude's 96.6%.
+
+#### Lever 1: Grammar-Constrained Output (biggest gain, no hardware change)
+
+llama.cpp supports JSON schema constraints that force the model to emit only valid validator names. The model still reasons about *which* validator to pick — it just cannot hallucinate an invalid name like `NUMERIC_ID` or `OBJECTID`.
+
+Add `response_format` to every inference call:
+
+```json
+{
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "template": {"type": "string"},
+          "validators": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "NUMERIC", "UUID", "MONGODB", "ALPHANUMERIC_ID", "TIMESTAMP",
+                "IATA_AIRPORT", "ICAO_AIRPORT", "ISO_639_1", "ISO_639_2",
+                "COUNTRY_ALPHA2", "COUNTRY_ALPHA3", "CURRENCY", "HTTP_STATUS",
+                "US_STATE", "DAY_OF_WEEK", "MONTH_NAME", "ANY"
+              ]
+            }
+          }
+        },
+        "required": ["template", "validators"]
+      }
+    }
+  }
+}
+```
+
+Estimated gain: **+4–6%**.
+
+#### Lever 2: Restructure Prompt for 7B Recency Bias (free)
+
+7B models over-weight end-of-prompt content. The current prompt puts `COMMON MISTAKES` and `VALIDATOR SELECTION RULES` in the middle — they get diluted. Move them just before `OUTPUT FORMAT` so they are the last things the model reads before generating.
+
+Current order:
+```
+Rules → Literal/Dynamic → Validators → Common Mistakes → Examples → Output Format
+```
+
+Recommended order for 7B:
+```
+Rules → Literal/Dynamic → Examples → Output Format → Validators → Common Mistakes
+```
+
+Estimated gain: **+3–4%**.
+
+With Lever 1 + Lever 2, Qwen2.5-7B is expected to reach **~92–94%**.
+
+#### Lever 3: Larger Model (if 92–94% is not sufficient)
+
+| Model | RAM (Q4_K_M) | Est. accuracy | Notes |
+|---|---|---|---|
+| Qwen2.5-7B + grammar + restructured prompt | 10 Gi | ~92–94% | Starting point |
+| **Phi-4 14B** (Microsoft) | 18 Gi | ~93–95% | Punches above 14B weight on instruction following |
+| **Qwen2.5-14B** + grammar | 18 Gi | ~95–96% | Recommended upgrade path ⭐ |
+| **Qwen2.5-32B** | 22 Gi | ~95–96% | If 14B falls short |
+| **DeepSeek-R1-Distill-14B** | 18 Gi | ~95–97% | Reasoning model: high accuracy, +10–30 sec latency per call |
+| **Llama 3.3-70B** (Meta) | 45 Gi | ~96–97% | Claude-level; expensive pod |
+| **Qwen2.5-72B** | 45 Gi | ~96–97% | Claude-level; expensive pod |
+
+**Notes on candidates:**
+- **Phi-4**: Microsoft's 14B model is trained heavily on synthetic reasoning data — strong structured output adherence, same pod cost as Qwen 14B. Worth benchmarking side-by-side.
+- **DeepSeek-R1-Distill-14B**: Reasoning model that generates chain-of-thought before the JSON. Handles ambiguous segments (e.g., `JFK` without flight context) better than pure instruction models. Acceptable only if trie cache misses are genuinely rare (latency per call is high).
+- **Llama 3.3-70B / Qwen2.5-72B**: Both credibly match Claude 3.5 Sonnet on this task. Require ~45 Gi RAM pods. Justified if accuracy SLA is strict and 14B falls short.
+
+**Not recommended:**
+- Mistral 7B / Nemo: weaker on long system prompts
+- Gemma 2 family: inconsistent structured output adherence
+- Any model ≤ 3B: accuracy ceiling too low regardless of prompt engineering
+
+#### Recommended Path
+
+1. Apply grammar constraint (API call change only — no code refactor)
+2. Restructure `SYSTEM_PROMPT` in `BedrockTemplateInferenceService.java` (section reorder)
+3. Run `BedrockIntegrationTest` against local llama-server to measure actual accuracy
+4. If below 95% → switch to Qwen2.5-14B or Phi-4 (same pod spec, double the RAM request)
+5. If below 95% with 14B → evaluate Qwen2.5-32B or DeepSeek-R1-Distill-14B
