@@ -1286,3 +1286,100 @@ With Lever 1 + Lever 2, Qwen2.5-7B is expected to reach **~92–94%**.
 3. Run `BedrockIntegrationTest` against local llama-server to measure actual accuracy
 4. If below 95% → switch to Qwen2.5-14B or Phi-4 (same pod spec, double the RAM request)
 5. If below 95% with 14B → evaluate Qwen2.5-32B or DeepSeek-R1-Distill-14B
+
+---
+
+## 13. Serverless LLM Inference via AWS API Gateway
+
+An alternative to calling Bedrock directly from the trie service is to route inference requests through an AWS API Gateway backed by two Lambda functions: an **Auth Lambda** (authorizer) and a **Bedrock Lambda** (caller). This decouples authentication and LLM invocation from the Java service, enables reuse across multiple clients, and centralizes access control.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    A["Java Trie Service\n(cache miss)"] -->|"POST /infer\nAuthorization: Basic\nbase64(identifier:hybridToken)\nBody: {path: ...}"| B["AWS API Gateway"]
+
+    B --> C{"Lambda Authorizer\n(Auth Lambda)"}
+
+    C -->|"getCompaniesByHybridToken(token)\ngRPC"| D["Company Service\n:50051"]
+    D -->|"List[Company]"| C
+
+    C -->|"hybridAuthId == identifier\nList non-empty → ALLOW\notherwise → DENY"| B
+
+    B -->|"Authorized request\nevent.body.path"| E["Bedrock Lambda\n(Python)"]
+
+    E -->|"InvokeModel\nClaude 3.5 Sonnet"| F["AWS Bedrock"]
+    F -->|"{template, validators}"| E
+
+    E -->|"200 OK\n{template, validators}"| B
+    B -->|"response"| A
+
+    style C fill:#553c9a,stroke:#805ad5,color:#e2e8f0
+    style E fill:#276749,stroke:#38a169,color:#e2e8f0
+    style F fill:#c05621,stroke:#dd6b20,color:#e2e8f0
+    style D fill:#1a365d,stroke:#2b6cb0,color:#e2e8f0
+```
+
+### Auth Concept: Borrowed from Big Data Gateway
+
+The authentication mechanism is identical to the one used in the **Big Data Gateway** service. That service validates incoming connections using a **hybrid token** scheme:
+
+1. The client sends HTTP Basic Auth: `Authorization: Basic base64(identifier:hybridToken)`
+2. The token is looked up via gRPC against the internal **Company Service** (`getCompaniesByHybridToken`)
+3. The service returns a `List[Company]` — empty list means invalid token
+4. An additional check verifies that every returned company's `hybridAuthId` matches the `identifier`
+5. Both conditions must pass for the request to be authenticated
+
+The Lambda Authorizer replicates this exact logic. On success it returns an IAM `Allow` policy; on failure it returns `Deny` (HTTP 403). API Gateway caches the authorizer result for 5 minutes (`authorizerResultTtlInSeconds: 300`), matching the refresh interval used in Big Data Gateway's token cache.
+
+### Components
+
+#### Lambda Authorizer
+
+- **Trigger**: API Gateway `REQUEST` type Lambda authorizer (has access to full request headers)
+- **Input**: `Authorization` header
+- **Logic**:
+  1. Decode `Basic base64(identifier:hybridToken)` → extract both parts
+  2. Call `company-service:50051` via gRPC: `getCompaniesByHybridToken(hybridToken)`
+  3. Validate: `List[Company]` non-empty AND all `hybridAuthId == identifier`
+  4. Return IAM policy (`Allow` or `Deny`) with `principalId = identifier`
+- **Cache TTL**: 300 seconds (reduces gRPC calls under load)
+
+#### Bedrock Lambda
+
+- **Trigger**: API Gateway POST `/infer` (only reached after authorizer allows)
+- **Input**: `{"path": "/api/users/123/profile"}`
+- **Logic**: Sends path + system prompt to Claude via Bedrock `InvokeModel`, parses JSON response
+- **Output**: `{"template": "/api/users/{id}/profile", "validators": {"id": "NUMERIC"}}`
+- **Runtime**: Python (uses `boto3` Bedrock client)
+- **IAM**: Lambda execution role needs `bedrock:InvokeModel` on the Claude model ARN
+
+### Request / Response
+
+**Request from Java trie service:**
+```http
+POST https://<api-gw-id>.execute-api.<region>.amazonaws.com/prod/infer
+Authorization: Basic aWRlbnRpZmllcjpoeWJyaWRUb2tlbg==
+Content-Type: application/json
+
+{"path": "/api/companies/64e7a294e854ff2eb3550075/config"}
+```
+
+**Response:**
+```json
+{
+  "template": "/api/companies/{companyId}/config",
+  "validators": {"companyId": "MONGODB"}
+}
+```
+
+### Comparison: Direct Bedrock vs API Gateway Flow
+
+| Concern | Direct Bedrock | API GW + Lambda |
+|---|---|---|
+| Auth | AWS IAM / pod role | Hybrid token (company service) |
+| AWS credentials in pod | Required | Not required |
+| Multi-client reuse | No | Yes — any service can call `/infer` |
+| Latency overhead | None | ~20–50 ms (API GW + authorizer cache hit) |
+| Observability | CloudWatch per service | Centralized at API GW layer |
+| Cost | Per Bedrock call | Per Bedrock call + Lambda invocations (negligible) |
