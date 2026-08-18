@@ -93,7 +93,7 @@ public class ApiGatewayTemplateInferenceService implements TemplateInferenceServ
         try {
             logger.info("Calling API Gateway to infer template for path: " + path);
 
-            String requestBody = objectMapper.writeValueAsString(Map.of("path", path));
+            String requestBody = objectMapper.writeValueAsString(Map.of("path", path, "prompt", PromptLoader.get()));
 
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(endpointUrl))
