@@ -198,11 +198,23 @@ public class BedrockTemplateInferenceService implements TemplateInferenceService
         "- NO explanatory text, NO markdown, ONLY the JSON object\n";
 
     /**
-     * Creates a Bedrock inference service with default configuration.
-     * Uses default AWS credentials and us-east-1 region.
+     * No-arg constructor for reflection-based instantiation via TemplateInferenceServiceFactory.
+     *
+     * Optional env vars (both have defaults):
+     *   BEDROCK_REGION    — AWS region (default: us-east-1)
+     *   BEDROCK_MODEL_ID  — model/inference-profile ID
+     *                       (default: us.anthropic.claude-3-5-sonnet-20241022-v2:0)
      */
     public BedrockTemplateInferenceService() {
-        this(Region.US_EAST_1, "us.anthropic.claude-3-5-sonnet-20241022-v2:0");
+        this(
+            Region.of(getEnvOrDefault("BEDROCK_REGION", "us-east-1")),
+            getEnvOrDefault("BEDROCK_MODEL_ID", "us.anthropic.claude-3-5-sonnet-20241022-v2:0")
+        );
+    }
+
+    private static String getEnvOrDefault(String name, String defaultValue) {
+        String value = System.getenv(name);
+        return (value != null && !value.isBlank()) ? value : defaultValue;
     }
 
     /**

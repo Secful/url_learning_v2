@@ -4,8 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import salt.security.PathResolverService;
-import salt.security.llm.BedrockTemplateInferenceService;
-import software.amazon.awssdk.regions.Region;
+import salt.security.llm.TemplateInferenceServiceFactory;
 
 import java.util.logging.Logger;
 
@@ -63,11 +62,7 @@ class RealWorldTracesTest {
      */
     private PathResolverService createResolver() {
         PathTemplateTrie trie = new PathTemplateTrie();
-        BedrockTemplateInferenceService llmService = new BedrockTemplateInferenceService(
-            Region.US_EAST_1,
-            "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-        );
-        return new PathResolverService(trie, llmService);
+        return new PathResolverService(trie, TemplateInferenceServiceFactory.create());
     }
 
     @Test

@@ -4,19 +4,29 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import salt.security.PathResolverService;
-import salt.security.llm.BedrockTemplateInferenceService;
 import salt.security.llm.TemplateInferenceService;
+import salt.security.llm.TemplateInferenceServiceFactory;
 import salt.security.trie.MatchResult;
 import salt.security.trie.PathTemplateTrie;
-import software.amazon.awssdk.regions.Region;
 
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests that actually invoke Claude on AWS Bedrock.
- * These tests require valid AWS credentials at ~/.aws/credentials
+ * Integration tests for template inference.
+ * Implementation selected via INFERENCE_SERVICE_CLASS env var.
+ *
+ * Example (API Gateway):
+ *   INFERENCE_SERVICE_CLASS=salt.security.llm.ApiGatewayTemplateInferenceService
+ *   API_GW_URL=https://<id>.execute-api.eu-north-1.amazonaws.com/prod/infer
+ *   API_GW_AUTH_HEADER_NAME=secret
+ *   API_GW_AUTH_HEADER_VALUE=77
+ *
+ * Example (Bedrock direct):
+ *   INFERENCE_SERVICE_CLASS=salt.security.llm.BedrockTemplateInferenceService
+ *   BEDROCK_REGION=eu-north-1
+ *   BEDROCK_MODEL_ID=eu.anthropic.claude-sonnet-4-6
  *
  * Run with: mvn test -Dtest=BedrockIntegrationTest
  */
@@ -24,16 +34,17 @@ class BedrockIntegrationTest {
     private static final Logger logger = Logger.getLogger(BedrockIntegrationTest.class.getName());
 
     private PathTemplateTrie trie;
-    private BedrockTemplateInferenceService llmService;
+    private TemplateInferenceService llmService;
     private PathResolverService resolver;
 
     @BeforeEach
     void setUp() {
         trie = new PathTemplateTrie();
-        llmService = new BedrockTemplateInferenceService(Region.US_EAST_1, "us.anthropic.claude-3-5-sonnet-20241022-v2:0");
+        llmService = TemplateInferenceServiceFactory.create();
         resolver = new PathResolverService(trie, llmService);
 
-        logger.info("Integration test setup complete - will call Bedrock");
+        logger.info("Integration test setup — impl: " +
+            System.getenv(TemplateInferenceServiceFactory.CLASS_ENV_VAR));
     }
 
     @Test
