@@ -1,5 +1,7 @@
 # Path Template Trie — Design Document ("URL Learning")
 
+> **Companion project:** [Secful/trie_inference_gateway](https://github.com/Secful/trie_inference_gateway) — AWS API Gateway + Auth Lambda + Bedrock Lambda that powers the serverless LLM inference path described in Section 13.
+
 ## TL;DR
 
 **What it does:** Maps concrete API paths (e.g., `/api/v2/companies/645d4369eb31790784df4dc0/posturegaps`) to parameterized templates (e.g., `/api/v2/companies/{companyId}/posturegaps`) in **~1 microsecond** using a prefix tree.
